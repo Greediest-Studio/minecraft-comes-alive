@@ -125,6 +125,10 @@ dependencies {
             transitive = false // We only care about the 1 annotation class
         }
     }
+
+    compileOnly 'org.projectlombok:lombok:1.18.36'
+    annotationProcessor 'org.projectlombok:lombok:1.18.36'
+
     if (propertyBool('use_asset_mover')) {
         implementation "com.cleanroommc:assetmover:${propertyString('asset_mover_version')}"
     }
