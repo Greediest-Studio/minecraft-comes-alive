@@ -10,6 +10,7 @@ import net.minecraft.block.state.IBlockState;
 import net.minecraft.item.*;
 import net.minecraft.util.EnumHand;
 import net.minecraft.util.NonNullList;
+import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
 
 import java.util.ArrayList;
@@ -91,9 +92,14 @@ public class EntityAIHarvesting extends AbstractEntityAIChore {
                     BlockCrops crop = (BlockCrops) state.getBlock();
                     NonNullList<ItemStack> drops = NonNullList.create();
                     crop.getDrops(drops, villager.world, target, state, 0);
+
                     for (ItemStack stack : drops) {
-                        villager.inventory.addItem(stack);
+                        ResourceLocation id = stack.getItem().getRegistryName();
+                        if (id != null && !id.getPath().contains("seeds")) {
+                            villager.inventory.addItem(stack);
+                        }
                     }
+
 
                     villager.swingArm(EnumHand.MAIN_HAND);
                     villager.getHeldItem(EnumHand.MAIN_HAND).damageItem(2, villager);
