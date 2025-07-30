@@ -130,12 +130,14 @@ public class EntityGrimReaper extends EntityMob {
     @Override
     public boolean attackEntityFrom(DamageSource source, float damage) {
 
+        if (this.dataManager.get(INVINCIBLE_TICKS) > 0) {
+            return false;
+        }
+
         float maxDamage = this.getMaxHealth() * 0.25F;
         if (damage > maxDamage) {
             damage = maxDamage;
         }
-
-        bossInfo.setPercent(this.getHealth() / this.getMaxHealth());
 
         if (source.getTrueSource() != null && source.getTrueSource() instanceof EntityPlayer) {
             EntityPlayer player = (EntityPlayer) source.getTrueSource();
@@ -204,9 +206,8 @@ public class EntityGrimReaper extends EntityMob {
                 this.dataManager.set(INVINCIBLE_TICKS, 20); // 20 ticks = 1秒
             }
 
-            if (newBlockCount % 7 == 0) {
-                float healAmount = this.getMaxHealth() * 0.04f;
-                this.setHealth(Math.min(this.getHealth() + healAmount, this.getMaxHealth()));
+            float healAmount = this.getMaxHealth() * 0.005f;
+            this.setHealth(Math.min(this.getHealth() + healAmount, this.getMaxHealth()));
 
                 // 治疗粒子效果
                 if (!world.isRemote) {
@@ -218,7 +219,6 @@ public class EntityGrimReaper extends EntityMob {
                                 0, 0.1, 0);
                     }
                 }
-            }
 
             setStateTransitionCooldown(0);
             return false;
@@ -409,6 +409,8 @@ public class EntityGrimReaper extends EntityMob {
         if (!MCA.getConfig().allowGrimReaper) {
             setDead();
         }
+
+        bossInfo.setPercent(this.getHealth() / this.getMaxHealth());
 
         if (this.getAttackTarget() == null || this.getAttackTarget().isDead) {
             EntityPlayer closestPlayer = this.world.getClosestPlayerToEntity(this, 48.0D);
