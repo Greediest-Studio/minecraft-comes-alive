@@ -130,6 +130,10 @@ public class EntityGrimReaper extends EntityMob {
     @Override
     public boolean attackEntityFrom(DamageSource source, float damage) {
 
+        if (source.getTrueSource() == null || !(source.getTrueSource() instanceof EntityPlayer)) {
+            return false;
+        }
+
         if (this.dataManager.get(INVINCIBLE_TICKS) > 0) {
             return false;
         }
@@ -206,7 +210,7 @@ public class EntityGrimReaper extends EntityMob {
                 this.dataManager.set(INVINCIBLE_TICKS, 20); // 20 ticks = 1秒
             }
 
-            float healAmount = this.getMaxHealth() * 0.005f;
+            float healAmount = this.getMaxHealth() * 0.004f;
             this.setHealth(Math.min(this.getHealth() + healAmount, this.getMaxHealth()));
 
                 // 治疗粒子效果
@@ -267,6 +271,9 @@ public class EntityGrimReaper extends EntityMob {
             teleportTo(this.posX, this.posY + 8, this.posZ);
             setStateTransitionCooldown(1200); // 1 minute
         }
+
+        float anyDamageHeal = this.getMaxHealth() * 0.001f;
+        this.setHealth(Math.min(this.getHealth() + anyDamageHeal, this.getMaxHealth()));
 
         return true;
     }
