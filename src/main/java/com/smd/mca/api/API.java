@@ -11,8 +11,10 @@ import com.smd.mca.entity.EntityVillagerMCA;
 import com.smd.mca.enums.EnumConstraint;
 import com.smd.mca.enums.EnumGender;
 import com.smd.mca.util.Util;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.client.resources.LanguageManager;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.StringUtils;
@@ -46,10 +48,11 @@ public class API {
         SkinsGroup[] skins = Util.readResourceAsJSON("api/skins.json", SkinsGroup[].class);
         Collections.addAll(skinGroups, skins);
 
-        // Load names
-        InputStream namesStream = StringUtils.class.getResourceAsStream("/assets/mca/lang/names.lang");
+        LanguageManager languageManager = Minecraft.getMinecraft().getLanguageManager();
+        String currentLangCode = languageManager.getCurrentLanguage().getLanguageCode();
+        String langFilePath = String.format("/assets/mca/lang/%s.lang", currentLangCode);
+        InputStream namesStream = StringUtils.class.getResourceAsStream(langFilePath);
         try {
-            // read in all names and process into the correct list
             List<String> lines = IOUtils.readLines(namesStream, Charsets.UTF_8);
             lines.stream().filter((l) -> l.contains("name.male")).forEach((l) -> maleNames.add(l.split("\\=")[1]));
             lines.stream().filter((l) -> l.contains("name.female")).forEach((l) -> femaleNames.add(l.split("\\=")[1]));
