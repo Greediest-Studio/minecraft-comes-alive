@@ -6,6 +6,11 @@ import com.smd.mca.core.minecraft.ItemsMCA;
 import com.smd.mca.core.minecraft.SoundsMCA;
 import com.smd.mca.enums.EnumReaperAttackState;
 import com.smd.mca.util.Util;
+import net.minecraft.block.Block;
+import net.minecraft.block.BlockBarrier;
+import net.minecraft.block.BlockCommandBlock;
+import net.minecraft.block.material.Material;
+import net.minecraft.block.state.IBlockState;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.SharedMonsterAttributes;
@@ -31,6 +36,7 @@ import net.minecraft.util.DamageSource;
 import net.minecraft.util.EnumParticleTypes;
 import net.minecraft.util.SoundCategory;
 import net.minecraft.util.SoundEvent;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.BossInfo;
@@ -120,8 +126,9 @@ public class EntityGrimReaper extends EntityMob {
     public boolean attackEntityFrom(DamageSource source, float damage) {
         bossInfo.setPercent(this.getHealth() / this.getMaxHealth());
 
-        if (source.getTrueSource() instanceof EntityPlayer && rand.nextFloat() <= 0.20F) {
+        if (source.getTrueSource() != null && source.getTrueSource() instanceof EntityPlayer) {
             EntityPlayer player = (EntityPlayer) source.getTrueSource();
+            if (player != null && !player.isDead && rand.nextFloat() <= 0.20F) {
             List<PotionEffect> activeEffects = new ArrayList<>(player.getActivePotionEffects());
 
             Optional<PotionEffect> positiveEffect = activeEffects.stream()
@@ -131,21 +138,20 @@ public class EntityGrimReaper extends EntityMob {
             positiveEffect.ifPresent(effect -> {
                 player.removePotionEffect(effect.getPotion());
             });
-        }
+        }}
 
-        if (source.getTrueSource() instanceof EntityPlayer
-                && !(source.getImmediateSource() instanceof EntityArrow)
-                && rand.nextFloat() <= 0.30F) {
+        if (source.getTrueSource() instanceof EntityPlayer) {
+                EntityPlayer player = (EntityPlayer) source.getTrueSource();
+                if (player != null && !player.isDead
+                            && !(source.getImmediateSource() instanceof EntityArrow)
+                            && rand.nextFloat() <= 0.30F) {
+                        double distance = this.getDistance(player);
 
-            EntityPlayer player = (EntityPlayer) source.getTrueSource();
-            double distance = this.getDistance(player);
-
-            if (distance > 5.0D) {
-                teleportTo(player.posX, player.posY + 1.5D, player.posZ);
-                player.addPotionEffect(new PotionEffect(MobEffects.WEAKNESS, 60, 1));
-                world.playSound(null, player.posX, player.posY, player.posZ, SoundEvents.ENTITY_ENDERMEN_STARE, SoundCategory.HOSTILE, 1.0F, 1.0F);
-            }
-        }
+        if (distance > 5.0D) {
+            teleportTo(player.posX, player.posY + 1.5D, player.posZ);
+            player.addPotionEffect(new PotionEffect(MobEffects.WEAKNESS, 60, 1));
+            world.playSound(null, player.posX, player.posY, player.posZ, SoundEvents.ENTITY_ENDERMEN_STARE, SoundCategory.HOSTILE, 1.0F, 1.0F);
+        }}}
 
 
 
@@ -193,30 +199,27 @@ public class EntityGrimReaper extends EntityMob {
             teleportTo(player.posX - (deltaX * 2), player.posY + 2, this.posZ - (deltaZ * 2));
         }
 
-        // Teleport behind the player who fired an arrow and ignore its damage.
-        else if (source.getImmediateSource() instanceof EntityArrow) {
+        if (source.getImmediateSource() instanceof EntityArrow) {
             EntityArrow arrow = (EntityArrow) source.getImmediateSource();
 
-            if (arrow.shootingEntity instanceof EntityPlayer && getAttackState() != EnumReaperAttackState.REST) {
+            if (arrow != null && arrow.shootingEntity instanceof EntityPlayer && getAttackState() != EnumReaperAttackState.REST) {
                 EntityPlayer player = (EntityPlayer) arrow.shootingEntity;
+                if (player != null && !player.isDead) {
                 double newX = player.posX + rand.nextFloat() >= 0.50F ? 2 : -2;
                 double newZ = player.posZ + rand.nextFloat() >= 0.50F ? 2 : -2;
 
                 teleportTo(newX, player.posY, newZ);
-            }
+            }}
 
             arrow.setDead();
             return false;
         }
 
-        // Still take damage when healing, but reduced by a third.
         else if (this.getAttackState() == EnumReaperAttackState.REST) {
-            // 统计10格范围内的小怪数量（不包括Boss自身）
             int mobCount = world.getEntitiesWithinAABB(EntityMob.class, this.getEntityBoundingBox().grow(10.0D)).stream()
                     .filter(mob -> mob != this && !mob.isDead)
                     .toArray().length;
 
-            // 每个小怪提升5%减伤，最多45%
             float reductionRatio = MathHelper.clamp(mobCount * 0.05F, 0.0F, 0.45F);
             damage *= (0.8F - reductionRatio);
         }
@@ -235,13 +238,11 @@ public class EntityGrimReaper extends EntityMob {
 
     protected void attackEntity(Entity entity, float damage) {
         EntityLivingBase entityToAttack = this.getAttackTarget();
-        if (entityToAttack == null) return;
+        if (entityToAttack == null || entityToAttack.isDead) return;
 
-        // 改进攻击距离计算
         double attackDistance = this.width * 1.5D + entityToAttack.width;
         double distanceSq = this.getDistanceSq(entityToAttack.posX, entityToAttack.getEntityBoundingBox().minY, entityToAttack.posZ);
 
-        // 修复攻击失效问题
         if (distanceSq <= attackDistance * attackDistance && getAttackState() == EnumReaperAttackState.PRE) {
             if (getAttackState() == EnumReaperAttackState.BLOCK) {
                 int rX = this.getRNG().nextInt(10);
@@ -259,19 +260,16 @@ public class EntityGrimReaper extends EntityMob {
             }
         }
 
-        // Check if we're waiting for cooldown from the last attack.
         if (getStateTransitionCooldown() == 0 && entityToAttack != null) {
-            double trackingDistance = 4.0D; // 增加追踪范围
-            double verticalRange = 3.0D; // 增加垂直追踪范围
+            double trackingDistance = 4.0D;
+            double verticalRange = 3.0D;
 
             // 计算实体与目标的垂直距离
             double yDiff = Math.abs(this.posY - entityToAttack.posY);
             double horizontalDistance = this.getDistance(entityToAttack.posX, this.posY, entityToAttack.posZ);
 
-            // 增强追踪逻辑
             if (horizontalDistance <= trackingDistance && yDiff <= verticalRange) {
-                // Check to see if the player's blocking, then teleport behind them.
-                // Also randomly swap their selected item with something else in the hotbar and apply blindness.
+
                 if (entityToAttack instanceof EntityPlayer) {
                     EntityPlayer player = (EntityPlayer) entityToAttack;
 
@@ -294,7 +292,6 @@ public class EntityGrimReaper extends EntityMob {
                         }
                     } else // If the player is not blocking, ready the scythe, or randomly block their attack.
                     {
-                        // 修复格挡条件判断 (原40.0F改为0.4F)
                         if (rand.nextFloat() >= 0.4F && getAttackState() != EnumReaperAttackState.PRE) {
                             setStateTransitionCooldown(20);
                             setAttackState(EnumReaperAttackState.BLOCK);
@@ -304,15 +301,11 @@ public class EntityGrimReaper extends EntityMob {
                         }
                     }
                 }
-            } else // Reset the attacking state when we're more than 3 blocks away.
+            } else
             {
                 setAttackState(EnumReaperAttackState.IDLE);
             }
         }
-    }
-
-    protected Entity findPlayerToAttack() {
-        return world.getClosestPlayerToEntity(this, 48.0D);
     }
 
     @Override
@@ -344,38 +337,32 @@ public class EntityGrimReaper extends EntityMob {
             setDead();
         }
 
-
-        // 增强索敌逻辑：当没有攻击目标时主动寻找
         if (this.getAttackTarget() == null || this.getAttackTarget().isDead) {
-            EntityPlayer closestPlayer = this.world.getClosestPlayerToEntity(this, 30.0D);
+            EntityPlayer closestPlayer = this.world.getClosestPlayerToEntity(this, 48.0D);
             if (closestPlayer != null) {
                 this.setAttackTarget(closestPlayer);
             }
         }
 
         EntityLivingBase entityToAttack = this.getAttackTarget();
-
-        if (entityToAttack != null && getAttackState() != EnumReaperAttackState.REST) {
+        if (entityToAttack != null && !entityToAttack.isDead
+                && getAttackState() != EnumReaperAttackState.REST) {
             attackEntity(entityToAttack, 5.0F);
             this.getMoveHelper().setMoveTo(entityToAttack.posX, entityToAttack.posY, entityToAttack.posZ, 0.6F); // 提高移动速度
 
-            // ==== 防止穿过玩家的关键逻辑 ====
             Vec3d targetVec = new Vec3d(
                     entityToAttack.posX - this.posX,
                     entityToAttack.posY - this.posY,
                     entityToAttack.posZ - this.posZ
             ).normalize();
 
-            // 在接近目标时减速防止穿过
             double distanceToTarget = this.getDistance(entityToAttack);
             double speedFactor = distanceToTarget < 3.0D ? 0.15D : 0.35D;
 
             this.motionX = targetVec.x * speedFactor;
             this.motionZ = targetVec.z * speedFactor;
-            // ============================
         }
 
-        // Increment floating ticks on the client when resting.
         if (world.isRemote && getAttackState() == EnumReaperAttackState.REST) {
             floatingTicks += 0.1F;
         }
