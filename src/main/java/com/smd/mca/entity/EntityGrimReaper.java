@@ -37,6 +37,10 @@ import net.minecraft.world.BossInfo;
 import net.minecraft.world.BossInfoServer;
 import net.minecraft.world.World;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+
 public class EntityGrimReaper extends EntityMob {
     private static final DataParameter<Integer> ATTACK_STATE = EntityDataManager.<Integer>createKey(EntityGrimReaper.class, DataSerializers.VARINT);
     private static final DataParameter<Integer> STATE_TRANSITION_COOLDOWN = EntityDataManager.<Integer>createKey(EntityGrimReaper.class, DataSerializers.VARINT);
@@ -115,6 +119,36 @@ public class EntityGrimReaper extends EntityMob {
     @Override
     public boolean attackEntityFrom(DamageSource source, float damage) {
         bossInfo.setPercent(this.getHealth() / this.getMaxHealth());
+
+        if (source.getTrueSource() instanceof EntityPlayer && rand.nextFloat() <= 0.20F) {
+            EntityPlayer player = (EntityPlayer) source.getTrueSource();
+            List<PotionEffect> activeEffects = new ArrayList<>(player.getActivePotionEffects());
+
+            Optional<PotionEffect> positiveEffect = activeEffects.stream()
+                    .filter(effect -> effect.getPotion().isBeneficial())
+                    .findAny();
+
+            positiveEffect.ifPresent(effect -> {
+                player.removePotionEffect(effect.getPotion());
+            });
+        }
+
+        if (source.getTrueSource() instanceof EntityPlayer
+                && !(source.getImmediateSource() instanceof EntityArrow)
+                && rand.nextFloat() <= 0.30F) {
+
+            EntityPlayer player = (EntityPlayer) source.getTrueSource();
+            double distance = this.getDistance(player);
+
+            if (distance > 5.0D) {
+                teleportTo(player.posX, player.posY + 1.5D, player.posZ);
+                player.addPotionEffect(new PotionEffect(MobEffects.WEAKNESS, 60, 1));
+                world.playSound(null, player.posX, player.posY, player.posZ, SoundEvents.ENTITY_ENDERMEN_STARE, SoundCategory.HOSTILE, 1.0F, 1.0F);
+            }
+        }
+
+
+
 
         // Ignore wall damage and fire damage.
         if (source == DamageSource.IN_WALL || source == DamageSource.ON_FIRE || source.isExplosion() || source == DamageSource.IN_FIRE) {
@@ -353,7 +387,8 @@ public class EntityGrimReaper extends EntityMob {
                 setAttackState(EnumReaperAttackState.IDLE);
                 timesHealed++;
             } else if (!world.isRemote && getStateTransitionCooldown() % 100 == 0) {
-                this.setHealth(this.getHealth() + MathHelper.clamp(10.5F - (timesHealed * 3.5F), 3.0F, 10.5F));
+                float healAmount = this.getMaxHealth() * 0.04f;
+                this.setHealth(Math.min(this.getHealth() + healAmount, this.getMaxHealth()));
 
                 for (EntityPlayer player : world.getEntitiesWithinAABB(EntityPlayer.class, this.getEntityBoundingBox().grow(6.0D))) {
                     Vec3d direction = new Vec3d(player.posX - this.posX, 0, player.posZ - this.posZ).normalize();
@@ -387,7 +422,6 @@ public class EntityGrimReaper extends EntityMob {
             }
         }
 
-        // Prevent flying off into oblivion on death...
         if (this.getHealth() <= 0.0F) {
             motionX = 0;
             motionY = 0;
