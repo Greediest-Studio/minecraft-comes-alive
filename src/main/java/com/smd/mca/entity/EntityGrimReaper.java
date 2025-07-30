@@ -51,6 +51,9 @@ public class EntityGrimReaper extends EntityMob {
     private static final DataParameter<Integer> ATTACK_STATE = EntityDataManager.<Integer>createKey(EntityGrimReaper.class, DataSerializers.VARINT);
     private static final DataParameter<Integer> STATE_TRANSITION_COOLDOWN = EntityDataManager.<Integer>createKey(EntityGrimReaper.class, DataSerializers.VARINT);
 
+    private static final DataParameter<Integer> BLOCK_COUNTER = EntityDataManager.createKey(EntityGrimReaper.class, DataSerializers.VARINT);
+    private static final DataParameter<Integer> INVINCIBLE_TICKS = EntityDataManager.createKey(EntityGrimReaper.class, DataSerializers.VARINT);
+
     private final BossInfoServer bossInfo = (BossInfoServer) (new BossInfoServer(this.getDisplayName(), BossInfo.Color.PURPLE, BossInfo.Overlay.PROGRESS)).setDarkenSky(true);
     private EntityAINearestAttackableTarget aiNearestAttackableTarget = new EntityAINearestAttackableTarget(this, EntityPlayer.class, true);
     private int healingCooldown;
@@ -91,6 +94,8 @@ public class EntityGrimReaper extends EntityMob {
         super.entityInit();
         this.dataManager.register(ATTACK_STATE, 0);
         this.dataManager.register(STATE_TRANSITION_COOLDOWN, 0);
+        this.dataManager.register(BLOCK_COUNTER, 0);
+        this.dataManager.register(INVINCIBLE_TICKS, 0);
     }
 
     public EnumReaperAttackState getAttackState() {
@@ -191,6 +196,30 @@ public class EntityGrimReaper extends EntityMob {
                 );
                 world.addWeatherEffect(lightning);
             }
+
+            int newBlockCount = this.dataManager.get(BLOCK_COUNTER) + 1;
+            this.dataManager.set(BLOCK_COUNTER, newBlockCount);
+
+            if (newBlockCount % 3 == 0) {
+                this.dataManager.set(INVINCIBLE_TICKS, 20); // 20 ticks = 1秒
+            }
+
+            if (newBlockCount % 7 == 0) {
+                float healAmount = this.getMaxHealth() * 0.04f;
+                this.setHealth(Math.min(this.getHealth() + healAmount, this.getMaxHealth()));
+
+                // 治疗粒子效果
+                if (!world.isRemote) {
+                    for (int i = 0; i < 5; i++) {
+                        world.spawnParticle(EnumParticleTypes.HEART,
+                                posX + (rand.nextDouble() - 0.5),
+                                posY + 1.5 + rand.nextDouble(),
+                                posZ + (rand.nextDouble() - 0.5),
+                                0, 0.1, 0);
+                    }
+                }
+            }
+
             setStateTransitionCooldown(0);
             return false;
         }
@@ -359,8 +388,23 @@ public class EntityGrimReaper extends EntityMob {
 
     @Override
     public void onUpdate() {
+
+        if (this.dataManager.get(INVINCIBLE_TICKS) > 0) {
+            this.dataManager.set(INVINCIBLE_TICKS, this.dataManager.get(INVINCIBLE_TICKS) - 1);
+
+            if (world.isRemote) {
+                for (int i = 0; i < 2; i++) {
+                    world.spawnParticle(EnumParticleTypes.SPELL_INSTANT,
+                            posX + (rand.nextDouble() - 0.5) * 1.5,
+                            posY + rand.nextDouble() * 2.5,
+                            posZ + (rand.nextDouble() - 0.5) * 1.5,
+                            0, 0, 0);
+                }
+            }
+        }
+
         super.onUpdate();
-        extinguish(); // No fire.
+        extinguish();
 
         if (!MCA.getConfig().allowGrimReaper) {
             setDead();
@@ -395,9 +439,7 @@ public class EntityGrimReaper extends EntityMob {
         if (world.isRemote && getAttackState() == EnumReaperAttackState.REST) {
             floatingTicks += 0.1F;
         }
-
-        // Increase health when resting and check to stop rest state.
-        // Runs on common to spawn lightning.
+        
         if (getAttackState() == EnumReaperAttackState.REST) {
             if (!world.isRemote && getStateTransitionCooldown() == 1) {
                 setAttackState(EnumReaperAttackState.IDLE);
