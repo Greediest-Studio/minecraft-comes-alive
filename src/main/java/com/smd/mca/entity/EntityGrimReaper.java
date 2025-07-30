@@ -124,6 +124,12 @@ public class EntityGrimReaper extends EntityMob {
 
     @Override
     public boolean attackEntityFrom(DamageSource source, float damage) {
+
+        float maxDamage = this.getMaxHealth() * 0.25F;
+        if (damage > maxDamage) {
+            damage = maxDamage;
+        }
+
         bossInfo.setPercent(this.getHealth() / this.getMaxHealth());
 
         if (source.getTrueSource() != null && source.getTrueSource() instanceof EntityPlayer) {
@@ -249,7 +255,30 @@ public class EntityGrimReaper extends EntityMob {
                 int rZ = this.getRNG().nextInt(10);
                 teleportTo(this.posX + 5 + rX, this.posY, this.posZ + rZ);
             } else {
-                entity.attackEntityFrom(DamageSource.causeMobDamage(this), this.world.getDifficulty().getId() * 5.75F);
+                float rawDamage = this.world.getDifficulty().getId() * 5.75F;
+
+                if (entity instanceof EntityPlayer) {
+                    EntityPlayer player = (EntityPlayer) entity;
+
+                    int foodLevel = player.getFoodStats().getFoodLevel();
+                    player.getFoodStats().setFoodLevel(Math.max(foodLevel - 2, 0));
+                    // 血量低于10%直接秒杀
+                    if (player.getHealth() <= player.getMaxHealth() * 0.1F) {
+                        player.attackEntityFrom(DamageSource.OUT_OF_WORLD, Float.MAX_VALUE);
+                    } else {
+                        // 分段伤害计算
+                        float physicalDamage = rawDamage * 0.6F;  // 60%物理伤害
+                        float fireDamage = rawDamage * 0.3F;     // 30%火焰伤害
+                        float magicDamage = rawDamage * 0.1F;    // 10%魔法伤害
+
+                        player.attackEntityFrom(DamageSource.causeMobDamage(this), physicalDamage);
+                        player.attackEntityFrom(DamageSource.IN_FIRE, fireDamage); // 火焰伤害
+                        player.attackEntityFrom(DamageSource.MAGIC, magicDamage);  // 魔法伤害
+                        player.setFire(40); // 设置2秒着火（40ticks）
+                    }
+                } else if (entity instanceof EntityLivingBase) {
+                    entity.attackEntityFrom(DamageSource.causeMobDamage(this), rawDamage);
+                }
 
                 if (entity instanceof EntityLivingBase) {
                     ((EntityLivingBase) entity).addPotionEffect(new PotionEffect(MobEffects.WITHER, this.world.getDifficulty().getId() * 20, 1));
