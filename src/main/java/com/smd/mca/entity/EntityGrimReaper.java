@@ -28,6 +28,8 @@ import net.minecraft.network.datasync.DataSerializers;
 import net.minecraft.network.datasync.EntityDataManager;
 import net.minecraft.potion.PotionEffect;
 import net.minecraft.util.DamageSource;
+import net.minecraft.util.EnumParticleTypes;
+import net.minecraft.util.SoundCategory;
 import net.minecraft.util.SoundEvent;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
@@ -65,7 +67,7 @@ public class EntityGrimReaper extends EntityMob {
         super.applyEntityAttributes();
         this.getEntityAttribute(SharedMonsterAttributes.FOLLOW_RANGE).setBaseValue(50.0D);
         this.getEntityAttribute(SharedMonsterAttributes.MOVEMENT_SPEED).setBaseValue(0.30F);
-        this.getEntityAttribute(SharedMonsterAttributes.ATTACK_DAMAGE).setBaseValue(7.5F);
+        this.getEntityAttribute(SharedMonsterAttributes.ATTACK_DAMAGE).setBaseValue(4.5F);
         this.getEntityAttribute(SharedMonsterAttributes.MAX_HEALTH).setBaseValue(300.0F);
     }
 
@@ -175,7 +177,14 @@ public class EntityGrimReaper extends EntityMob {
 
         // Still take damage when healing, but reduced by a third.
         else if (this.getAttackState() == EnumReaperAttackState.REST) {
-            damage /= 3;
+            // 统计10格范围内的小怪数量（不包括Boss自身）
+            int mobCount = world.getEntitiesWithinAABB(EntityMob.class, this.getEntityBoundingBox().grow(10.0D)).stream()
+                    .filter(mob -> mob != this && !mob.isDead)
+                    .toArray().length;
+
+            // 每个小怪提升5%减伤，最多45%
+            float reductionRatio = MathHelper.clamp(mobCount * 0.05F, 0.0F, 0.45F);
+            damage *= (0.8F - reductionRatio);
         }
 
         super.attackEntityFrom(source, damage);
@@ -346,7 +355,17 @@ public class EntityGrimReaper extends EntityMob {
             } else if (!world.isRemote && getStateTransitionCooldown() % 100 == 0) {
                 this.setHealth(this.getHealth() + MathHelper.clamp(10.5F - (timesHealed * 3.5F), 3.0F, 10.5F));
 
-                // Let's have a light show.
+                for (EntityPlayer player : world.getEntitiesWithinAABB(EntityPlayer.class, this.getEntityBoundingBox().grow(6.0D))) {
+                    Vec3d direction = new Vec3d(player.posX - this.posX, 0, player.posZ - this.posZ).normalize();
+                    double pushPower = 0.6D;
+
+                    player.motionX += direction.x * pushPower;
+                    player.motionZ += direction.z * pushPower;
+
+                    world.playSound(null, player.posX, player.posY, player.posZ, SoundsMCA.reaper_summon, SoundCategory.HOSTILE, 1.0F, 0.8F);
+                    world.spawnParticle(EnumParticleTypes.SMOKE_LARGE, player.posX, player.posY + 1.0D, player.posZ, 0.0D, 0.1D, 0.0D);
+                }
+
                 int dX = rand.nextInt(8) + 4 * (rand.nextFloat() >= 0.50F ? 1 : -1);
                 int dZ = rand.nextInt(8) + 4 * (rand.nextFloat() >= 0.50F ? 1 : -1);
                 int y = Util.getSpawnSafeTopLevel(world, (int) posX + dX, 256, (int) posZ + dZ);
