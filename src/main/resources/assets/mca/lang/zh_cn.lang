@@ -209,6 +209,7 @@ gui.label.following=跟随
 
 gui.info.gift.line1=礼物可用
 gui.info.gift.line2=点击以赠送
+gui.marriage.failed=已禁止玩家与村民结婚
 
 spouse.chore.mining.orenotify=附近有一些%v2%
 spouse.chore.mining.nopick=我忘了带镐子了，亲爱的，你多带了一把吗？
