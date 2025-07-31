@@ -6,13 +6,10 @@ import com.smd.mca.core.minecraft.ItemsMCA;
 import com.smd.mca.core.minecraft.SoundsMCA;
 import com.smd.mca.enums.EnumReaperAttackState;
 import com.smd.mca.util.Util;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockBarrier;
-import net.minecraft.block.BlockCommandBlock;
-import net.minecraft.block.material.Material;
-import net.minecraft.block.state.IBlockState;
+import net.minecraft.client.resources.I18n;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
+import net.minecraft.entity.MoverType;
 import net.minecraft.entity.SharedMonsterAttributes;
 import net.minecraft.entity.ai.*;
 import net.minecraft.entity.effect.EntityLightningBolt;
@@ -31,6 +28,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.network.datasync.DataParameter;
 import net.minecraft.network.datasync.DataSerializers;
 import net.minecraft.network.datasync.EntityDataManager;
+import net.minecraft.potion.Potion;
 import net.minecraft.potion.PotionEffect;
 import net.minecraft.util.DamageSource;
 import net.minecraft.util.EnumParticleTypes;
@@ -43,14 +41,18 @@ import net.minecraft.world.BossInfo;
 import net.minecraft.world.BossInfoServer;
 import net.minecraft.world.World;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.Collection;
 
 public class EntityGrimReaper extends EntityMob {
     private static final DataParameter<Integer> ATTACK_STATE = EntityDataManager.<Integer>createKey(EntityGrimReaper.class, DataSerializers.VARINT);
     private static final DataParameter<Integer> STATE_TRANSITION_COOLDOWN = EntityDataManager.<Integer>createKey(EntityGrimReaper.class, DataSerializers.VARINT);
 
+    private EnumReaperAttackState cachedAttackState = EnumReaperAttackState.IDLE;
+    private int controlResistance = 0;
+    private static final int MAX_CONTROL_RESISTANCE = 200;
+    private static final float MAX_RESISTANCE_FACTOR = 1.0f;
+    private int clearEffectsTimer = 60; // 3秒计时器(60 ticks)
+    private static final int CLEAR_EFFECTS_INTERVAL = 60; // 3秒间隔
     private static final DataParameter<Integer> BLOCK_COUNTER = EntityDataManager.createKey(EntityGrimReaper.class, DataSerializers.VARINT);
     private static final DataParameter<Integer> INVINCIBLE_TICKS = EntityDataManager.createKey(EntityGrimReaper.class, DataSerializers.VARINT);
 
@@ -82,6 +84,7 @@ public class EntityGrimReaper extends EntityMob {
         this.getEntityAttribute(SharedMonsterAttributes.MOVEMENT_SPEED).setBaseValue(0.30F);
         this.getEntityAttribute(SharedMonsterAttributes.ATTACK_DAMAGE).setBaseValue(4.5F);
         this.getEntityAttribute(SharedMonsterAttributes.MAX_HEALTH).setBaseValue(300.0F);
+        this.getEntityAttribute(SharedMonsterAttributes.KNOCKBACK_RESISTANCE).setBaseValue(1.0D);
     }
 
     @Override
@@ -99,12 +102,12 @@ public class EntityGrimReaper extends EntityMob {
     }
 
     public EnumReaperAttackState getAttackState() {
-        return EnumReaperAttackState.fromId(this.dataManager.get(ATTACK_STATE));
+        return cachedAttackState;
     }
 
     public void setAttackState(EnumReaperAttackState state) {
-        // Only update if needed so that sounds only play once.
-        if (this.dataManager.get(ATTACK_STATE) != state.getId()) {
+        if (cachedAttackState != state) {
+            cachedAttackState = state;
             this.dataManager.set(ATTACK_STATE, state.getId());
 
             switch (state) {
@@ -118,13 +121,8 @@ public class EntityGrimReaper extends EntityMob {
         }
     }
 
-    public boolean hasEntityToAttack() {
-        return this.getAttackTarget() != null;
-    }
-
     @Override
     public void onStruckByLightning(EntityLightningBolt entity) {
-        return;
     }
 
     @Override
@@ -143,25 +141,28 @@ public class EntityGrimReaper extends EntityMob {
             damage = maxDamage;
         }
 
+        if (source.isMagicDamage() || source.isExplosion()) {
+            controlResistance = Math.min(controlResistance + 20, MAX_CONTROL_RESISTANCE);
+        }
+
         if (source.getTrueSource() != null && source.getTrueSource() instanceof EntityPlayer) {
             EntityPlayer player = (EntityPlayer) source.getTrueSource();
-            if (player != null && !player.isDead && rand.nextFloat() <= 0.20F) {
-            List<PotionEffect> activeEffects = new ArrayList<>(player.getActivePotionEffects());
-
-            Optional<PotionEffect> positiveEffect = activeEffects.stream()
-                    .filter(effect -> effect.getPotion().isBeneficial())
-                    .findAny();
-
-            positiveEffect.ifPresent(effect -> {
-                player.removePotionEffect(effect.getPotion());
-            });
-        }}
+            if (player != null && !player.isDead && rand.nextFloat() < 0.20F) {
+                Collection<PotionEffect> activeEffects = player.getActivePotionEffects();
+                for (PotionEffect effect : activeEffects) {
+                    if (effect.getPotion().isBeneficial()) {
+                        player.removePotionEffect(effect.getPotion());
+                        break;
+                    }
+                }
+            }
+        }
 
         if (source.getTrueSource() instanceof EntityPlayer) {
                 EntityPlayer player = (EntityPlayer) source.getTrueSource();
                 if (player != null && !player.isDead
                             && !(source.getImmediateSource() instanceof EntityArrow)
-                            && rand.nextFloat() <= 0.30F) {
+                            && rand.nextFloat() < 0.30F) {
                         double distance = this.getDistance(player);
 
         if (distance > 5.0D) {
@@ -229,7 +230,7 @@ public class EntityGrimReaper extends EntityMob {
         }
 
         // Randomly portal behind the player who just attacked.
-        else if (!world.isRemote && source.getImmediateSource() instanceof EntityPlayer && rand.nextFloat() >= 0.30F) {
+        else if (!world.isRemote && source.getImmediateSource() instanceof EntityPlayer && rand.nextFloat() > 0.30F) {
             EntityPlayer player = (EntityPlayer) source.getImmediateSource();
 
             double deltaX = this.posX - player.posX;
@@ -244,8 +245,8 @@ public class EntityGrimReaper extends EntityMob {
             if (arrow != null && arrow.shootingEntity instanceof EntityPlayer && getAttackState() != EnumReaperAttackState.REST) {
                 EntityPlayer player = (EntityPlayer) arrow.shootingEntity;
                 if (player != null && !player.isDead) {
-                double newX = player.posX + rand.nextFloat() >= 0.50F ? 2 : -2;
-                double newZ = player.posZ + rand.nextFloat() >= 0.50F ? 2 : -2;
+                double newX = player.posX + rand.nextFloat() > 0.50F ? 2 : -2;
+                double newZ = player.posZ + rand.nextFloat() > 0.50F ? 2 : -2;
 
                 teleportTo(newX, player.posY, newZ);
             }}
@@ -344,7 +345,7 @@ public class EntityGrimReaper extends EntityMob {
 
                         teleportTo(player.posX - (dX * 2), player.posY + 2, player.posZ - (dZ * 2));
 
-                        if (!world.isRemote && rand.nextFloat() >= 0.20F) {
+                        if (!world.isRemote && rand.nextFloat() > 0.20F) {
                             int currentItem = player.inventory.currentItem;
                             int randomItem = rand.nextInt(InventoryPlayer.getHotbarSize());
                             ItemStack currentItemStack = player.inventory.mainInventory.get(currentItem);
@@ -357,7 +358,7 @@ public class EntityGrimReaper extends EntityMob {
                         }
                     } else // If the player is not blocking, ready the scythe, or randomly block their attack.
                     {
-                        if (rand.nextFloat() >= 0.4F && getAttackState() != EnumReaperAttackState.PRE) {
+                        if (rand.nextFloat() > 0.4F && getAttackState() != EnumReaperAttackState.PRE) {
                             setStateTransitionCooldown(20);
                             setAttackState(EnumReaperAttackState.BLOCK);
                         } else {
@@ -399,7 +400,7 @@ public class EntityGrimReaper extends EntityMob {
         if (this.dataManager.get(INVINCIBLE_TICKS) > 0) {
             this.dataManager.set(INVINCIBLE_TICKS, this.dataManager.get(INVINCIBLE_TICKS) - 1);
 
-            if (world.isRemote) {
+            if (world.isRemote && rand.nextInt(3) == 0) {
                 for (int i = 0; i < 2; i++) {
                     world.spawnParticle(EnumParticleTypes.SPELL_INSTANT,
                             posX + (rand.nextDouble() - 0.5) * 1.5,
@@ -410,8 +411,59 @@ public class EntityGrimReaper extends EntityMob {
             }
         }
 
+        if (!world.isRemote) {
+            // 每3秒清除负面效果
+            if (--clearEffectsTimer <= 0) {
+                clearNegativePotionEffects();
+                clearEffectsTimer = CLEAR_EFFECTS_INTERVAL;
+            }
+        }
+
+        double prevX = this.prevPosX;
+        double prevY = this.prevPosY;
+        double prevZ = this.prevPosZ;
+
         super.onUpdate();
         extinguish();
+
+        if (!world.isRemote) {
+
+            // 计算实际位移
+            double movedX = posX - prevX;
+            double movedY = posY - prevY;
+            double movedZ = posZ - prevZ;
+            double movedDistanceSq = movedX * movedX + movedY * movedY + movedZ * movedZ;
+
+            // 增强检测灵敏度
+            boolean isAbnormalMove = movedDistanceSq > (1.5 * 1.5);
+            boolean isExternalForce = getAttackState() != EnumReaperAttackState.TELEPORTING;
+
+            if (isAbnormalMove && isExternalForce) {
+                // 大幅增加抵抗值
+                controlResistance = Math.min(controlResistance + 60, MAX_CONTROL_RESISTANCE);
+
+                // 立即触发强力反击
+                EntityLivingBase target = getAttackTarget();
+                if (target != null) {
+                    teleportTo(target.posX, target.posY + 1.5, target.posZ);
+                    // 反击时附加负面效果
+                    if (!world.isRemote) {
+                        target.addPotionEffect(new PotionEffect(MobEffects.BLINDNESS, 100, 0));
+                        target.addPotionEffect(new PotionEffect(MobEffects.SLOWNESS, 100, 2));
+                    }
+                    world.playSound(null, posX, posY, posZ,
+                            SoundEvents.ENTITY_ENDERDRAGON_GROWL, SoundCategory.HOSTILE, 1.5F, 0.8F);
+                }
+                // 重置抵抗值并延长效果
+                controlResistance = MAX_CONTROL_RESISTANCE;
+                clearEffectsTimer += 20; // 延长1秒清除间隔
+            }
+
+            // 每tick减少抵抗值
+            if (controlResistance > 0) {
+                controlResistance--;
+            }
+        }
 
         if (!MCA.getConfig().allowGrimReaper) {
             setDead();
@@ -468,8 +520,8 @@ public class EntityGrimReaper extends EntityMob {
                     world.spawnParticle(EnumParticleTypes.SMOKE_LARGE, player.posX, player.posY + 1.0D, player.posZ, 0.0D, 0.1D, 0.0D);
                 }
 
-                int dX = rand.nextInt(8) + 4 * (rand.nextFloat() >= 0.50F ? 1 : -1);
-                int dZ = rand.nextInt(8) + 4 * (rand.nextFloat() >= 0.50F ? 1 : -1);
+                int dX = rand.nextInt(8) + 4 * (rand.nextFloat() > 0.50F ? 1 : -1);
+                int dZ = rand.nextInt(8) + 4 * (rand.nextFloat() > 0.50F ? 1 : -1);
                 int y = Util.getSpawnSafeTopLevel(world, (int) posX + dX, 256, (int) posZ + dZ);
 
                 EntityLightningBolt bolt = new EntityLightningBolt(world, dX, y, dZ, false);
@@ -477,7 +529,7 @@ public class EntityGrimReaper extends EntityMob {
 
                 // Also spawn a random skeleton or zombie.
                 if (!world.isRemote) {
-                    EntityMob mob = rand.nextFloat() >= 0.50F ? new EntityZombie(world) : new EntitySkeleton(world);
+                    EntityMob mob = rand.nextFloat() > 0.50F ? new EntityZombie(world) : new EntitySkeleton(world);
                     mob.setPosition(posX + dX + 4, y, posZ + dZ + 4);
 
                     if (mob instanceof EntitySkeleton) {
@@ -549,13 +601,24 @@ public class EntityGrimReaper extends EntityMob {
     }
 
     @Override
+    public void move(MoverType type, double x, double y, double z) {
+
+        if (controlResistance >= MAX_CONTROL_RESISTANCE) {
+            return;
+        }
+
+        float resistanceFactor = 1.0f - (controlResistance / (float)MAX_CONTROL_RESISTANCE * MAX_RESISTANCE_FACTOR);
+        super.move(type, x * resistanceFactor, y * resistanceFactor, z * resistanceFactor);
+    }
+
+    @Override
     public void onDeath(DamageSource source) {
         super.onDeath(source);
     }
 
     @Override
     public String getName() {
-        return "Grim Reaper";
+        return I18n.format("entity.boss.grimreaper");
     }
 
     @Override
@@ -577,11 +640,40 @@ public class EntityGrimReaper extends EntityMob {
 
     private void teleportTo(double x, double y, double z) {
         if (!world.isRemote) {
-            this.playSound(SoundEvents.ENTITY_ENDERMEN_TELEPORT, 2.0F, 1.0F);
-            this.setPosition(x, y, z);
-            this.playSound(SoundEvents.ENTITY_ENDERMEN_TELEPORT, 2.0F, 1.0F);
+
+            if (!world.isBlockLoaded(new BlockPos(x, y, z))) return;
+
+            EnumReaperAttackState current = getAttackState();
+            if (current != EnumReaperAttackState.TELEPORTING) {
+                setAttackState(EnumReaperAttackState.TELEPORTING);
+            }
+
+            this.setPositionAndUpdate(x, y, z);
+
+            if (rand.nextFloat() < 0.9F) {
+                this.playSound(SoundEvents.ENTITY_ENDERMEN_TELEPORT, 1.5F, 1.0F);
+            }
+
+            if (current != EnumReaperAttackState.TELEPORTING) {
+                setAttackState(current);
+            }
         }
     }
+
+
+    private void clearNegativePotionEffects() {
+        Collection<PotionEffect> effects = this.getActivePotionEffects();
+        if (effects.isEmpty()) return;
+
+        for (PotionEffect effect : effects) {
+            Potion potion = effect.getPotion();
+            if (!potion.isBeneficial()) {
+                this.removePotionEffect(potion);
+            }
+        }
+    }
+
+
 
     @Override
     public boolean isNonBoss() {

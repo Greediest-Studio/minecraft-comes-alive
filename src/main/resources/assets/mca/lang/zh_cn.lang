@@ -16,6 +16,8 @@ entity.Villager.archer=弓箭手
 entity.Villager.hero=英雄
 entity.Villager.child=孩子
 
+entity.boss.grimreaper=死神
+
 ##############################
 # Items & Blocks
 ##############################

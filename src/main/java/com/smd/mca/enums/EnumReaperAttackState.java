@@ -12,11 +12,15 @@ public enum EnumReaperAttackState {
     PRE(1),
     POST(2),
     REST(3),
-    BLOCK(4);
+    BLOCK(4),
+    TELEPORTING(5);  // 新增传送状态
 
     int id;
 
     public static EnumReaperAttackState fromId(int id) {
-        return Arrays.stream(values()).filter(s -> s.id == id).findFirst().orElse(IDLE);
+        return Arrays.stream(values())
+                .filter(s -> s.id == id)
+                .findFirst()
+                .orElse(IDLE);
     }
 }
