@@ -322,8 +322,13 @@ public class EntityGrimReaper extends EntityMob {
                         player.setFire(40); // 设置2秒着火（40ticks）
                         player.addPotionEffect(new PotionEffect(MobEffects.WITHER, this.world.getDifficulty().getId() * 20, 1));
                         if (player.experienceLevel > 0 || player.experienceTotal > 0) {
-                            int drainAmount = this.world.getDifficulty().getId() * 3;
-                            player.addExperience(-drainAmount);
+                        int totalExp = player.experienceTotal;
+
+                        int drainExp = Math.max(1, MathHelper.floor(totalExp * 0.05F));
+
+                        player.addExperience(-drainExp);
+                        float healAmount = drainExp * 1.0F;
+                        this.setHealth(Math.min(this.getHealth() + healAmount, this.getMaxHealth()));
                         }
                     }
                 } else if (entity instanceof EntityLivingBase) {
