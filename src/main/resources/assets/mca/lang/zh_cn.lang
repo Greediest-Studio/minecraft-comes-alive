@@ -51,6 +51,8 @@ tile.mca:villager_spawner.name=村民生成器
 tile.mca:rose_gold_block.name=玫瑰金块
 tile.mca:rose_gold_ore.name=玫瑰金矿石
 
+message.death_force_block=死亡之力阻止了你的行动
+
 ################################
 # Relations
 ################################

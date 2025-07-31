@@ -8,9 +8,11 @@ import com.smd.mca.core.minecraft.BlocksMCA;
 import com.smd.mca.core.minecraft.ItemsMCA;
 import com.smd.mca.core.minecraft.ProfessionsMCA;
 import com.smd.mca.core.minecraft.WorldEventListenerMCA;
+import com.smd.mca.entity.EntityGrimReaper;
 import com.smd.mca.entity.EntityVillagerMCA;
 import com.smd.mca.items.ItemBaby;
 import net.minecraft.block.Block;
+import net.minecraft.client.resources.I18n;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.monster.EntityMob;
@@ -20,8 +22,10 @@ import net.minecraft.init.Blocks;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.stats.StatList;
+import net.minecraft.util.SoundCategory;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.text.TextComponentString;
+import net.minecraft.util.text.TextComponentTranslation;
 import net.minecraft.util.text.event.ClickEvent;
 import net.minecraft.world.World;
 import net.minecraftforge.event.RegistryEvent;
@@ -224,4 +228,19 @@ public class EventHooks {
             // throw out potential NPEs due to bad event data. some of these have been reported
         }
     }
-}
+
+    @SubscribeEvent
+    public void onPlayerInteractEntity(PlayerInteractEvent.EntityInteract event) {
+        if (event.getTarget() instanceof EntityGrimReaper) {
+            EntityPlayer player = event.getEntityPlayer();
+            ItemStack stack = player.getHeldItem(event.getHand());
+
+            if (stack != null && !stack.isEmpty()) { // 加入空指针判定
+                event.setCanceled(true);
+                if (!event.getWorld().isRemote) {
+                    player.sendMessage(new TextComponentTranslation("message.death_force_block"));
+                }
+            }
+            }
+        }
+    }
