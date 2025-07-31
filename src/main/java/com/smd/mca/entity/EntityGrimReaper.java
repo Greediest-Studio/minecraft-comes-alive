@@ -295,9 +295,11 @@ public class EntityGrimReaper extends EntityMob {
         if (entityToAttack == null || entityToAttack.isDead) return;
 
         double attackDistance = this.width * 1.5D + entityToAttack.width;
-        double distanceSq = this.getDistanceSq(entityToAttack.posX, entityToAttack.getEntityBoundingBox().minY, entityToAttack.posZ);
+        double deltaY = Math.abs(this.posY - entityToAttack.posY);
+        double distanceSq = this.getDistanceSq(entityToAttack);
 
-        if (distanceSq <= attackDistance * attackDistance && getAttackState() == EnumReaperAttackState.PRE) {
+        if (distanceSq <= (attackDistance * attackDistance) && deltaY <= 3.0D
+                && getAttackState() == EnumReaperAttackState.PRE) {
             if (getAttackState() == EnumReaperAttackState.BLOCK) {
                 int rX = this.getRNG().nextInt(10);
                 int rZ = this.getRNG().nextInt(10);
@@ -498,6 +500,16 @@ public class EntityGrimReaper extends EntityMob {
 
         bossInfo.setPercent(this.getHealth() / this.getMaxHealth());
 
+        if (this.getAttackTarget() != null) {
+
+            this.getMoveHelper().setMoveTo(
+                    getAttackTarget().posX,
+                    getAttackTarget().posY + 1.0,
+                    getAttackTarget().posZ,
+                    0.6F
+            );
+        }
+
         if (this.getAttackTarget() == null || this.getAttackTarget().isDead) {
             EntityPlayer closestPlayer = this.world.getClosestPlayerToEntity(this, 48.0D);
             if (closestPlayer != null) {
@@ -513,7 +525,7 @@ public class EntityGrimReaper extends EntityMob {
 
             Vec3d targetVec = new Vec3d(
                     entityToAttack.posX - this.posX,
-                    entityToAttack.posY - this.posY,
+                    (entityToAttack.posY + 1.0) - this.posY,
                     entityToAttack.posZ - this.posZ
             ).normalize();
 
@@ -521,6 +533,7 @@ public class EntityGrimReaper extends EntityMob {
             double speedFactor = distanceToTarget < 3.0D ? 0.15D : 0.35D;
 
             this.motionX = targetVec.x * speedFactor;
+            this.motionY = targetVec.y * speedFactor * 0.6;
             this.motionZ = targetVec.z * speedFactor;
         }
 
@@ -638,22 +651,20 @@ public class EntityGrimReaper extends EntityMob {
         if (soulSwapCooldown > 0) {
             soulSwapCooldown--;
         }
-        // Move towards target if we're not resting
+
         if (entityToAttack != null && getAttackState() != EnumReaperAttackState.REST) {
-            // If we have a creature to attack, we need to move downwards if we're above it, and vice-versa.
-            double sqDistanceTo = Math.sqrt(Math.pow(entityToAttack.posX - posX, 2) + Math.pow(entityToAttack.posZ - posZ, 2));
-            float moveAmount = 0.0F;
+            double verticalDiff = entityToAttack.posY - this.posY;
+            double horizontalDistance = this.getDistance(entityToAttack.posX, this.posY, entityToAttack.posZ);
+            float moveAmount = MathHelper.clamp((8F - (float)horizontalDistance) / 8F * 4F, 0, 2.5F);
 
-            if (sqDistanceTo < 8F) {
-                moveAmount = MathHelper.clamp(((8F - (float) sqDistanceTo) / 8F) * 4F, 0, 2.5F);
-            }
-
-            if (entityToAttack.posY + 0.2F < posY) {
-                motionY = motionY - 0.05F * moveAmount;
-            }
-
-            if (entityToAttack.posY - 0.5F > posY) {
-                motionY = motionY + 0.01F * moveAmount;
+            if (verticalDiff > 1.0F) { // 玩家在Boss上方较大距离
+                motionY += 0.05F * moveAmount; // 加速上升
+            } else if (verticalDiff > 0.1F) { // 玩家略高于Boss
+                motionY += 0.03F * moveAmount;
+            } else if (verticalDiff < -1.0F) { // 玩家在Boss下方较大距离
+                motionY -= 0.05F * moveAmount; // 加速下降
+            } else if (verticalDiff < -0.1F) { // 玩家略低于Boss
+                motionY -= 0.03F * moveAmount;
             }
         }
     }
