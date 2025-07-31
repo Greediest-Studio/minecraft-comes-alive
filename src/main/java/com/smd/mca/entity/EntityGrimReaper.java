@@ -231,7 +231,7 @@ public class EntityGrimReaper extends EntityMob {
                     } else // If the player is not blocking, ready the scythe, or randomly block their attack.
                     {
                         // Don't block if we've already committed to an attack.
-                        if (rand.nextFloat() <= 0.4F && getAttackState() != EnumReaperAttackState.PRE) {
+                        if (rand.nextFloat() >= 0.4F && getAttackState() != EnumReaperAttackState.PRE) {
                             setStateTransitionCooldown(20);
                             setAttackState(EnumReaperAttackState.BLOCK);
                         } else {
