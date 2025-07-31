@@ -113,7 +113,7 @@ public class EntityGrimReaper extends EntityMob {
             this.dataManager.set(ATTACK_STATE, state.getId());
 
             if (state == EnumReaperAttackState.BLOCK) {
-                currentBlockDuration = 30; // 初始化格挡时长为1.5秒
+                currentBlockDuration = 30;
             }
 
             switch (state) {
@@ -320,13 +320,14 @@ public class EntityGrimReaper extends EntityMob {
                         player.attackEntityFrom(DamageSource.IN_FIRE, fireDamage); // 火焰伤害
                         player.attackEntityFrom(DamageSource.MAGIC, magicDamage);  // 魔法伤害
                         player.setFire(40); // 设置2秒着火（40ticks）
+                        player.addPotionEffect(new PotionEffect(MobEffects.WITHER, this.world.getDifficulty().getId() * 20, 1));
+                        if (player.experienceLevel > 0 || player.experienceTotal > 0) {
+                            int drainAmount = this.world.getDifficulty().getId() * 3;
+                            player.addExperience(-drainAmount);
+                        }
                     }
                 } else if (entity instanceof EntityLivingBase) {
                     entity.attackEntityFrom(DamageSource.causeMobDamage(this), rawDamage);
-                }
-
-                if (entity instanceof EntityLivingBase) {
-                    ((EntityLivingBase) entity).addPotionEffect(new PotionEffect(MobEffects.WITHER, this.world.getDifficulty().getId() * 20, 1));
                 }
 
                 setAttackState(EnumReaperAttackState.POST);
