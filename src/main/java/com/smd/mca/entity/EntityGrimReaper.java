@@ -54,6 +54,8 @@ public class EntityGrimReaper extends EntityMob {
     private int clearEffectsTimer = 60; // 3秒计时器(60 ticks)
     private static final int CLEAR_EFFECTS_INTERVAL = 60; // 3秒间隔
     private int currentBlockDuration = 0;
+    private int soulSwapCooldown = 0; // 单位：tick（12000 tick = 10分钟）
+
     private static final DataParameter<Integer> BLOCK_COUNTER = EntityDataManager.createKey(EntityGrimReaper.class, DataSerializers.VARINT);
     private static final DataParameter<Integer> INVINCIBLE_TICKS = EntityDataManager.createKey(EntityGrimReaper.class, DataSerializers.VARINT);
 
@@ -601,6 +603,36 @@ public class EntityGrimReaper extends EntityMob {
             setAttackState(EnumReaperAttackState.IDLE);
         }
 
+        if (!world.isRemote && this.getAttackState() != EnumReaperAttackState.REST) {
+            if (world.getTotalWorldTime() % 20 == 0) { // 每秒触发一次（20 ticks）
+                for (EntityPlayer player : world.getEntitiesWithinAABB(EntityPlayer.class, this.getEntityBoundingBox().grow(3.0D))) {
+                    if (!player.isDead) {
+                        float damageAmount = player.getMaxHealth() * 0.01F;
+                        player.attackEntityFrom(DamageSource.OUT_OF_WORLD, damageAmount);
+                    }
+                }
+            }
+        }
+
+        if (!world.isRemote && soulSwapCooldown == 0
+                && getHealth() / getMaxHealth() <= 0.25F) {
+
+            EntityPlayer nearestPlayer = world.getClosestPlayerToEntity(this, 8.0D);
+
+            if (nearestPlayer != null && !nearestPlayer.isDead) {
+                float reaperHealthPercent = this.getHealth() / this.getMaxHealth();
+                float playerHealthPercent = nearestPlayer.getHealth() / nearestPlayer.getMaxHealth();
+
+                this.setHealth(playerHealthPercent * this.getMaxHealth());
+                nearestPlayer.setHealth(reaperHealthPercent * nearestPlayer.getMaxHealth());
+
+                soulSwapCooldown = 12000;
+            }
+        }
+
+        if (soulSwapCooldown > 0) {
+            soulSwapCooldown--;
+        }
         // Move towards target if we're not resting
         if (entityToAttack != null && getAttackState() != EnumReaperAttackState.REST) {
             // If we have a creature to attack, we need to move downwards if we're above it, and vice-versa.
