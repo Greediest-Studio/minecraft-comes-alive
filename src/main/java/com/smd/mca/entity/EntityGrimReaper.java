@@ -53,6 +53,7 @@ public class EntityGrimReaper extends EntityMob {
     private static final float MAX_RESISTANCE_FACTOR = 1.0f;
     private int clearEffectsTimer = 60; // 3秒计时器(60 ticks)
     private static final int CLEAR_EFFECTS_INTERVAL = 60; // 3秒间隔
+    private int currentBlockDuration = 0;
     private static final DataParameter<Integer> BLOCK_COUNTER = EntityDataManager.createKey(EntityGrimReaper.class, DataSerializers.VARINT);
     private static final DataParameter<Integer> INVINCIBLE_TICKS = EntityDataManager.createKey(EntityGrimReaper.class, DataSerializers.VARINT);
 
@@ -106,9 +107,14 @@ public class EntityGrimReaper extends EntityMob {
     }
 
     public void setAttackState(EnumReaperAttackState state) {
+
         if (cachedAttackState != state) {
             cachedAttackState = state;
             this.dataManager.set(ATTACK_STATE, state.getId());
+
+            if (state == EnumReaperAttackState.BLOCK) {
+                currentBlockDuration = 30; // 初始化格挡时长为1.5秒
+            }
 
             switch (state) {
                 case PRE:
@@ -210,6 +216,8 @@ public class EntityGrimReaper extends EntityMob {
             if (newBlockCount % 3 == 0) {
                 this.dataManager.set(INVINCIBLE_TICKS, 20); // 20 ticks = 1秒
             }
+
+            currentBlockDuration = Math.min(currentBlockDuration + 2, 100);
 
             float healAmount = this.getMaxHealth() * 0.004f;
             this.setHealth(Math.min(this.getHealth() + healAmount, this.getMaxHealth()));
@@ -358,7 +366,7 @@ public class EntityGrimReaper extends EntityMob {
                         }
                     } else // If the player is not blocking, ready the scythe, or randomly block their attack.
                     {
-                        if (rand.nextFloat() > 0.4F && getAttackState() != EnumReaperAttackState.PRE) {
+                        if (rand.nextFloat() > 0.7F && getAttackState() != EnumReaperAttackState.PRE) {
                             setStateTransitionCooldown(20);
                             setAttackState(EnumReaperAttackState.BLOCK);
                         } else {
@@ -425,6 +433,13 @@ public class EntityGrimReaper extends EntityMob {
 
         super.onUpdate();
         extinguish();
+
+        if (getAttackState() == EnumReaperAttackState.BLOCK) {
+            currentBlockDuration--;
+            if (currentBlockDuration <= 0) {
+                setAttackState(EnumReaperAttackState.IDLE);
+            }
+        }
 
         if (!world.isRemote) {
 
