@@ -41,6 +41,7 @@ import net.minecraft.world.BossInfo;
 import net.minecraft.world.BossInfoServer;
 import net.minecraft.world.World;
 
+import java.util.ArrayList;
 import java.util.Collection;
 
 public class EntityGrimReaper extends EntityMob {
@@ -166,7 +167,7 @@ public class EntityGrimReaper extends EntityMob {
             }
         }
 
-        if (source.getTrueSource() instanceof EntityPlayer) {
+        if (source.getTrueSource() != null && source.getTrueSource() instanceof EntityPlayer) {
                 EntityPlayer player = (EntityPlayer) source.getTrueSource();
                 if (player != null && !player.isDead
                             && !(source.getImmediateSource() instanceof EntityArrow)
@@ -327,8 +328,8 @@ public class EntityGrimReaper extends EntityMob {
                         int totalExp = player.experienceTotal;
 
                         int drainExp = Math.max(1, MathHelper.floor(totalExp * 0.05F));
-
-                        player.addExperience(-drainExp);
+                        drainExp = Math.min(drainExp, player.experienceTotal); // 防止负数
+                            player.addExperience(-drainExp);
                         float healAmount = drainExp * 1.0F;
                         this.setHealth(Math.min(this.getHealth() + healAmount, this.getMaxHealth()));
                         }
@@ -363,7 +364,10 @@ public class EntityGrimReaper extends EntityMob {
 
                         if (!world.isRemote && rand.nextFloat() > 0.20F) {
                             int currentItem = player.inventory.currentItem;
-                            int randomItem = rand.nextInt(InventoryPlayer.getHotbarSize());
+                            int hotbarSize = InventoryPlayer.getHotbarSize();
+                            if (hotbarSize <= 0) return;
+                            int randomItem = rand.nextInt(hotbarSize);
+
                             ItemStack currentItemStack = player.inventory.mainInventory.get(currentItem);
                             ItemStack randomItemStack = player.inventory.mainInventory.get(randomItem);
 
@@ -621,7 +625,8 @@ public class EntityGrimReaper extends EntityMob {
 
             if (nearestPlayer != null && !nearestPlayer.isDead) {
                 float reaperHealthPercent = this.getHealth() / this.getMaxHealth();
-                float playerHealthPercent = nearestPlayer.getHealth() / nearestPlayer.getMaxHealth();
+                float playerHealthPercent = nearestPlayer.getMaxHealth() > 0 ?
+                        nearestPlayer.getHealth() / nearestPlayer.getMaxHealth() : 0;
 
                 this.setHealth(playerHealthPercent * this.getMaxHealth());
                 nearestPlayer.setHealth(reaperHealthPercent * nearestPlayer.getMaxHealth());
@@ -660,7 +665,9 @@ public class EntityGrimReaper extends EntityMob {
             return;
         }
 
-        float resistanceFactor = 1.0f - (controlResistance / (float)MAX_CONTROL_RESISTANCE * MAX_RESISTANCE_FACTOR);
+        float normalizedResistance = MathHelper.clamp(controlResistance / (float)MAX_CONTROL_RESISTANCE, 0f, 1f);
+        float resistanceFactor = 1.0f - (normalizedResistance * MAX_RESISTANCE_FACTOR);
+
         super.move(type, x * resistanceFactor, y * resistanceFactor, z * resistanceFactor);
     }
 
@@ -718,12 +725,11 @@ public class EntityGrimReaper extends EntityMob {
         Collection<PotionEffect> effects = this.getActivePotionEffects();
         if (effects.isEmpty()) return;
 
-        for (PotionEffect effect : effects) {
-            Potion potion = effect.getPotion();
-            if (!potion.isBeneficial()) {
-                this.removePotionEffect(potion);
+        new ArrayList<>(effects).forEach(effect -> {
+            if (!effect.getPotion().isBeneficial()) {
+                this.removePotionEffect(effect.getPotion());
             }
-        }
+        });
     }
 
 
