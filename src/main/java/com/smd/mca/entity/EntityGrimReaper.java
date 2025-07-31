@@ -276,9 +276,9 @@ public class EntityGrimReaper extends EntityMob {
 
         if (!world.isRemote && this.getHealth() <= (this.getEntityAttribute(SharedMonsterAttributes.MAX_HEALTH).getBaseValue() / 2) && healingCooldown == 0) {
             setAttackState(EnumReaperAttackState.REST);
-            healingCooldown = 4200; // 3 minutes 30 seconds
+            healingCooldown = 1200;
             teleportTo(this.posX, this.posY + 8, this.posZ);
-            setStateTransitionCooldown(1200); // 1 minute
+            setStateTransitionCooldown(400);
         }
 
         float anyDamageHeal = this.getMaxHealth() * 0.001f;
@@ -309,7 +309,7 @@ public class EntityGrimReaper extends EntityMob {
                     player.getFoodStats().setFoodLevel(Math.max(foodLevel - 2, 0));
                     // 血量低于10%直接秒杀
                     if (player.getHealth() <= player.getMaxHealth() * 0.1F) {
-                        player.attackEntityFrom(DamageSource.OUT_OF_WORLD, Float.MAX_VALUE);
+                        player.setHealth(0.0F);
                     } else {
                         // 分段伤害计算
                         float physicalDamage = rawDamage * 0.6F;  // 60%物理伤害
