@@ -50,7 +50,7 @@ import java.util.Collection;
 public class EntityGrimReaper extends EntityMob {
     private static final DataParameter<Integer> ATTACK_STATE = EntityDataManager.<Integer>createKey(EntityGrimReaper.class, DataSerializers.VARINT);
     private static final DataParameter<Integer> STATE_TRANSITION_COOLDOWN = EntityDataManager.<Integer>createKey(EntityGrimReaper.class, DataSerializers.VARINT);
-
+    private static final DataParameter<Integer> EFFECT_CLEAR_COUNT = EntityDataManager.createKey(EntityGrimReaper.class, DataSerializers.VARINT);
     private EnumReaperAttackState cachedAttackState = EnumReaperAttackState.IDLE;
     private int controlResistance = 0;
     private static final int MAX_CONTROL_RESISTANCE = 200;
@@ -108,6 +108,7 @@ public class EntityGrimReaper extends EntityMob {
         this.dataManager.register(STATE_TRANSITION_COOLDOWN, 0);
         this.dataManager.register(BLOCK_COUNTER, 0);
         this.dataManager.register(INVINCIBLE_TICKS, 0);
+        this.dataManager.register(EFFECT_CLEAR_COUNT, 0);
     }
 
     public EnumReaperAttackState getAttackState() {
@@ -317,6 +318,23 @@ public class EntityGrimReaper extends EntityMob {
 
                     int foodLevel = player.getFoodStats().getFoodLevel();
                     player.getFoodStats().setFoodLevel(Math.max(foodLevel - 2, 0));
+                    if (rand.nextFloat() < 0.85F) { // 30%概率
+                        Collection<PotionEffect> activeEffects = player.getActivePotionEffects();
+                        boolean effectRemoved = false;
+                        for (PotionEffect effect : activeEffects) {
+                            if (effect.getPotion().isBeneficial()) {
+                                player.removePotionEffect(effect.getPotion());
+                                effectRemoved = true;
+                                break;
+                            }
+                        }
+
+                        if (effectRemoved) {
+                            int newCount = this.dataManager.get(EFFECT_CLEAR_COUNT) + 1;
+                            this.dataManager.set(EFFECT_CLEAR_COUNT, newCount);
+                        }
+                    }
+
                     // 血量低于10%直接秒杀
                     if (player.getHealth() <= player.getMaxHealth() * 0.1F) {
                         player.setHealth(0.0F);
@@ -681,6 +699,15 @@ public class EntityGrimReaper extends EntityMob {
             EntityPlayer nearestPlayer = world.getClosestPlayerToEntity(this, 8.0D);
 
             if (nearestPlayer != null && !nearestPlayer.isDead) {
+                int clearCount = this.dataManager.get(EFFECT_CLEAR_COUNT);
+
+                if (clearCount > 0) {
+                    float healthBoost = this.getMaxHealth() * (clearCount * 0.015f);
+                    this.getEntityAttribute(SharedMonsterAttributes.MAX_HEALTH)
+                            .setBaseValue(this.getMaxHealth() + healthBoost);
+
+                    this.dataManager.set(EFFECT_CLEAR_COUNT, 0);
+                }
                 float reaperHealthPercent = this.getHealth() / this.getMaxHealth();
                 float playerHealthPercent = nearestPlayer.getMaxHealth() > 0 ?
                         nearestPlayer.getHealth() / nearestPlayer.getMaxHealth() : 0;
