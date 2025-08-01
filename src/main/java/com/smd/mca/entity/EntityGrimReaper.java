@@ -157,15 +157,6 @@ public class EntityGrimReaper extends EntityMob {
             return false;
         }
 
-        float maxDamage = this.getMaxHealth() * 0.25F;
-        if (damage > maxDamage) {
-            damage = maxDamage;
-        }
-
-        if (source.isMagicDamage() || source.isExplosion()) {
-            controlResistance = Math.min(controlResistance + 20, MAX_CONTROL_RESISTANCE);
-        }
-
         if (source.getTrueSource() != null && source.getTrueSource() instanceof EntityPlayer) {
             EntityPlayer player = (EntityPlayer) source.getTrueSource();
             if (player != null && !player.isDead && rand.nextFloat() < 0.20F) {
@@ -454,6 +445,11 @@ public class EntityGrimReaper extends EntityMob {
                 setAttackState(EnumReaperAttackState.IDLE);
             }
         }
+
+        float maxDamage = this.getMaxHealth() * 0.25F;
+        if (damage > maxDamage) {
+            damage = maxDamage;
+        }
     }
 
     @Override
@@ -519,11 +515,11 @@ public class EntityGrimReaper extends EntityMob {
             }
         }
 
+        //生命链接
         if (!world.isRemote &&
                 this.getAttackTarget() != null &&
                 lifeLinkCooldown == 0) {
 
-            // 高效的最近玩家查找
             EntityPlayer closest = null;
             double minDist = Double.MAX_VALUE;
 
@@ -539,20 +535,20 @@ public class EntityGrimReaper extends EntityMob {
             }
 
             if (closest != null) {
-                // 建立绑定
+
                 LifeLinkManager.INSTANCE.addBinding(this, closest, LIFE_LINK_DURATION);
                 lifeLinkCooldown = LIFE_LINK_COOLDOWN;
 
-                // 通知玩家
                 closest.sendMessage(new TextComponentString("你与死神建立了生命链接！"));
             }
         }
 
-        // 冷却倒计时
+        // 生命链接冷却
         if (lifeLinkCooldown > 0) {
             lifeLinkCooldown--;
         }
 
+        //位移抵抗
         if (!world.isRemote) {
 
             // 计算实际位移
@@ -608,6 +604,7 @@ public class EntityGrimReaper extends EntityMob {
             );
         }
 
+        //超远索敌
         if (this.getAttackTarget() == null || this.getAttackTarget().isDead) {
             EntityPlayer closestPlayer = this.world.getClosestPlayerToEntity(this, 48.0D);
             if (closestPlayer != null) {
@@ -686,14 +683,12 @@ public class EntityGrimReaper extends EntityMob {
             return;
         }
 
-        // Stop at our current position if resting
         if (getAttackState() == EnumReaperAttackState.REST) {
             motionX = 0;
             motionY = 0;
             motionZ = 0;
         }
 
-        // Logic for flying.
         fallDistance = 0.0F;
 
         if (motionY > 0) {
@@ -703,7 +698,6 @@ public class EntityGrimReaper extends EntityMob {
             motionY = motionY * 0.6F + yMod * 0.3F;
         }
 
-        // Tick down cooldowns.
         if (getStateTransitionCooldown() > 0) {
             setStateTransitionCooldown(getStateTransitionCooldown() - 1);
         }
