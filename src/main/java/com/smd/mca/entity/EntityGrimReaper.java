@@ -676,14 +676,13 @@ public class EntityGrimReaper extends EntityMob {
             healingCooldown--;
         }
 
-        // See if our entity to attack has died at any point.
         if (entityToAttack != null && entityToAttack.isDead) {
             this.setAttackTarget(null);
             setAttackState(EnumReaperAttackState.IDLE);
         }
 
         if (!world.isRemote && this.getAttackState() != EnumReaperAttackState.REST) {
-            if (world.getTotalWorldTime() % 20 == 0) { // 每秒触发一次（20 ticks）
+            if (world.getTotalWorldTime() % 12 == 0) {
                 for (EntityPlayer player : world.getEntitiesWithinAABB(EntityPlayer.class, this.getEntityBoundingBox().grow(3.0D))) {
                     if (!player.isDead) {
                         float damageAmount = player.getMaxHealth() * 0.01F;
@@ -693,10 +692,10 @@ public class EntityGrimReaper extends EntityMob {
             }
         }
 
-        if (!world.isRemote && soulSwapCooldown == 0
-                && getHealth() / getMaxHealth() <= 0.25F) {
+        EntityPlayer nearestPlayer = world.getClosestPlayerToEntity(this, 8.0D);
 
-            EntityPlayer nearestPlayer = world.getClosestPlayerToEntity(this, 8.0D);
+        if (nearestPlayer != null && !nearestPlayer.isDead && !world.isRemote && soulSwapCooldown == 0
+                && getHealth() / getMaxHealth() <= 0.25F) {
 
             if (nearestPlayer != null && !nearestPlayer.isDead) {
                 int clearCount = this.dataManager.get(EFFECT_CLEAR_COUNT);
