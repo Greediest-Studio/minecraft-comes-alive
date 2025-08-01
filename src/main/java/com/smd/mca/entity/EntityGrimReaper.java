@@ -28,9 +28,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.network.datasync.DataParameter;
 import net.minecraft.network.datasync.DataSerializers;
 import net.minecraft.network.datasync.EntityDataManager;
-import net.minecraft.potion.Potion;
 import net.minecraft.potion.PotionEffect;
-import net.minecraft.stats.StatList;
 import net.minecraft.util.DamageSource;
 import net.minecraft.util.EnumParticleTypes;
 import net.minecraft.util.SoundCategory;
@@ -41,7 +39,6 @@ import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.text.TextComponentString;
 import net.minecraft.world.BossInfo;
 import net.minecraft.world.BossInfoServer;
-import net.minecraft.world.EnumDifficulty;
 import net.minecraft.world.World;
 
 import java.util.ArrayList;
@@ -60,8 +57,7 @@ public class EntityGrimReaper extends EntityMob {
     private int currentBlockDuration = 0;
     private int soulSwapCooldown = 0; // 单位：tick（12000 tick = 10分钟）
     private int timeDebtCooldown = 0;
-    private final int TIME_DEBT_MAX_COOLDOWN = 900;
-    private int lifeLinkCooldown = 600; // 30秒冷却(600 ticks)
+    private int lifeLinkCooldown = 450; // 30秒冷却(600 ticks)
     private EntityPlayer linkedPlayer;
     private int linkDuration = 0;
     private float linkedPlayerPrevHealth = 0.0F;
@@ -407,41 +403,6 @@ public class EntityGrimReaper extends EntityMob {
             }
         }
 
-        if (entity instanceof EntityPlayerMP) {
-            EntityPlayerMP player = (EntityPlayerMP) entity;
-
-            // 检查冷却是否结束
-            if (timeDebtCooldown == 0) {
-                // 获取玩家游戏时长（分钟）
-                long playTimeMinutes = player.getStatFile().readStat(StatList.PLAY_ONE_MINUTE) / 20;
-
-                if (playTimeMinutes > 60) { // 至少游玩1小时的玩家才会受影响
-                    // 计算基础伤害：每分钟游戏时长造成0.05伤害
-                    float baseDamage = playTimeMinutes * 0.05f;
-
-                    float difficultyMod = world.getDifficulty() == EnumDifficulty.HARD ? 1.5f : 1.0f;
-
-                    float maxAllowedDamage = player.getMaxHealth() * 0.7f;
-                    float finalDamage = Math.min(baseDamage * difficultyMod, maxAllowedDamage);
-
-                    player.attackEntityFrom(DamageSource.MAGIC, finalDamage);
-
-                    timeDebtCooldown = TIME_DEBT_MAX_COOLDOWN;
-
-                    world.playSound(null, player.posX, player.posY, player.posZ,
-                            SoundEvents.ENTITY_ENDERDRAGON_GROWL,
-                            SoundCategory.HOSTILE, 0.8f, 0.5f);
-
-                    if (!world.isRemote) {
-                        float hours = playTimeMinutes / 60f;
-                        String message = String.format("死神收取了%.1f小时的时间债务！（-%.1f❤）",
-                                hours, finalDamage);
-                        player.sendMessage(new TextComponentString(message));
-                    }
-                }
-            }
-        }
-
         if (getStateTransitionCooldown() == 0 && entityToAttack != null) {
             double trackingDistance = 4.0D;
             double verticalRange = 3.0D;
@@ -571,16 +532,19 @@ public class EntityGrimReaper extends EntityMob {
                     if (currentHealth >= linkedPlayer.getMaxHealth()) {
                         linkedPlayer.attackEntityFrom(DamageSource.MAGIC, healAmount);
                     }
-                    // 否则同步治疗BOSS
                     else {
                         this.heal(healAmount);
                     }
                 }
 
-                // 更新记录的生命值
                 linkedPlayerPrevHealth = currentHealth;
 
-                // 添加视觉特效
+                if (world.getTotalWorldTime() % 20 == 0) {
+                    float damageAmount = linkedPlayer.getMaxHealth() * 0.01F;
+                    linkedPlayer.attackEntityFrom(DamageSource.OUT_OF_WORLD, damageAmount);
+                    this.heal(damageAmount);
+                }
+
                 if (world.getTotalWorldTime() % 5 == 0) {
                     Vec3d pos = new Vec3d(
                             (posX + linkedPlayer.posX) / 2,
@@ -589,6 +553,7 @@ public class EntityGrimReaper extends EntityMob {
                     );
                     world.spawnParticle(EnumParticleTypes.HEART,
                             pos.x, pos.y, pos.z, 0, 0.1, 0);
+
                 }
             } else {
                 linkedPlayer = null;
@@ -597,15 +562,14 @@ public class EntityGrimReaper extends EntityMob {
 
             // 冷却结束，尝试链接新玩家
             if (lifeLinkCooldown <= 0) {
-                lifeLinkCooldown = 600; // 重置冷却
+                lifeLinkCooldown = 600;
 
-                // 找到8格内最近的玩家
                 EntityPlayer closest = world.getClosestPlayerToEntity(this, 8.0D);
                 if (closest != null && !closest.isDead) {
                     linkedPlayer = closest;
                     linkedPlayerPrevHealth = closest.getHealth(); // 记录初始血量
-                    linkDuration = 200; // 10秒持续时间(200 ticks)
-
+                    linkDuration = 300;
+                    linkedPlayer.sendMessage(new TextComponentString("创建了生命连接"));
                     // 视觉和音效提示
                     closest.addPotionEffect(new PotionEffect(MobEffects.GLOWING, 200, 0));
                     world.playSound(null, posX, posY, posZ,
