@@ -1,11 +1,17 @@
 // LifeLinkManager.java
 package com.smd.mca.entity;
 
+import com.smd.mca.Tags;
+import com.smd.mca.core.minecraft.ModPotion;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.init.SoundEvents;
+import net.minecraft.potion.PotionEffect;
 import net.minecraft.util.EnumParticleTypes;
+import net.minecraft.util.SoundCategory;
 import net.minecraft.world.World;
 import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.event.entity.living.LivingHurtEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 import net.minecraftforge.event.entity.living.LivingHealEvent;
@@ -129,7 +135,6 @@ public enum LifeLinkManager {
 
     @SubscribeEvent
     public void onPlayerHeal(LivingHealEvent event) {
-
         if (!(event.getEntityLiving() instanceof EntityPlayer)) return;
 
         EntityPlayer player = (EntityPlayer) event.getEntityLiving();
@@ -139,13 +144,50 @@ public enum LifeLinkManager {
         long currentTime = world.getTotalWorldTime();
         EntityLivingBase boss = getBossForPlayer(player, currentTime);
 
+        float healAmount = event.getAmount();
+        float futureHealth = player.getHealth() + healAmount;
+        float maxHealth = player.getMaxHealth();
+
         if (boss != null && !boss.isDead && boss.getHealth() < boss.getMaxHealth()) {
-
-            float healAmount = event.getAmount();
             boss.heal(healAmount);
-
         }
+
+        if (futureHealth > maxHealth) {
+            PotionEffect current = player.getActivePotionEffect(ModPotion.DEATH_DENIAL);
+            int amplifier = current != null ? Math.min(current.getAmplifier() + 1, 19) : 0;
+
+            PotionEffect effect = new PotionEffect(ModPotion.DEATH_DENIAL, 600, amplifier);
+            effect.setCurativeItems(new ArrayList<>());
+            player.addPotionEffect(effect);
+
+            world.playSound(null, player.posX, player.posY, player.posZ, SoundEvents.ENTITY_WITHER_HURT, SoundCategory.HOSTILE, 1.0F, 0.8F);
+        }
+        PotionEffect denial = player.getActivePotionEffect(ModPotion.DEATH_DENIAL);
+        if (denial != null) {
+            float reduction = (denial.getAmplifier() + 1) * 0.05f;
+            healAmount *= (1.0f - reduction);
+            event.setAmount(healAmount);
         }
     }
+
+
+
+
+
+    @SubscribeEvent
+    public void onLivingHurt(LivingHurtEvent event) {
+        if (!(event.getSource().getTrueSource() instanceof EntityPlayer)) return;
+        EntityPlayer player = (EntityPlayer) event.getSource().getTrueSource();
+        World world = player.world;
+        long currentTime = world.getTotalWorldTime();
+        EntityLivingBase boss = getBossForPlayer(player, currentTime);
+
+        if (boss != null && !boss.isDead) {
+            // 15%伤害转化为治疗
+            float healAmount = event.getAmount() * 0.15f;
+            boss.heal(healAmount);
+        }
+    }
+}
 
 
