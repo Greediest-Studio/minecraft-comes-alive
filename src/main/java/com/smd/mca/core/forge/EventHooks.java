@@ -235,12 +235,12 @@ public class EventHooks {
             EntityPlayer player = event.getEntityPlayer();
             ItemStack stack = player.getHeldItem(event.getHand());
 
-            if (stack != null && !stack.isEmpty()) { // 加入空指针判定
+            if (stack != null && !stack.isEmpty()) {
                 event.setCanceled(true);
                 if (!event.getWorld().isRemote) {
                     player.sendMessage(new TextComponentTranslation("message.death_force_block"));
                 }
             }
-            }
         }
     }
+}

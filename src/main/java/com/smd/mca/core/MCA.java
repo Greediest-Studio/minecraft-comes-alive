@@ -12,6 +12,7 @@ import com.smd.mca.core.minecraft.ProfessionsMCA;
 import com.smd.mca.core.minecraft.RoseGoldOreGenerator;
 import com.smd.mca.entity.EntityGrimReaper;
 import com.smd.mca.entity.EntityVillagerMCA;
+import com.smd.mca.entity.LifeLinkManager;
 import com.smd.mca.enums.EnumGender;
 import net.minecraft.creativetab.CreativeTabs;
 import net.minecraft.item.ItemStack;
@@ -83,6 +84,8 @@ public class MCA {
         EntityRegistry.registerModEntity(new ResourceLocation(MODID, "EntityVillagerMCA"), EntityVillagerMCA.class, EntityVillagerMCA.class.getSimpleName(), 1120, this, 50, 2, true);
         EntityRegistry.registerModEntity(new ResourceLocation(MODID, "GrimReaperMCA"), EntityGrimReaper.class, EntityGrimReaper.class.getSimpleName(), 1121, this, 50, 2, true);
         ProfessionsMCA.registerCareers();
+
+        LifeLinkManager.init();
 
         proxy.registerModelMeshers();
         ItemsMCA.assignCreativeTabs();

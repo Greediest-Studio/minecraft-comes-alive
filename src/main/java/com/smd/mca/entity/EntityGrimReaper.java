@@ -43,6 +43,7 @@ import net.minecraft.world.World;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 
 public class EntityGrimReaper extends EntityMob {
     private static final DataParameter<Integer> ATTACK_STATE = EntityDataManager.<Integer>createKey(EntityGrimReaper.class, DataSerializers.VARINT);
@@ -70,6 +71,10 @@ public class EntityGrimReaper extends EntityMob {
     private int healingCooldown;
     private int timesHealed;
 
+    private int lifeLinkCooldown = 0;
+    private static final int LIFE_LINK_DURATION = 200; // 10秒
+    private static final int LIFE_LINK_COOLDOWN = 450; // 25秒冷却
+
     private float floatingTicks;
 
     public EntityGrimReaper(World world) {
@@ -94,6 +99,7 @@ public class EntityGrimReaper extends EntityMob {
         this.getEntityAttribute(SharedMonsterAttributes.ATTACK_DAMAGE).setBaseValue(4.5F);
         this.getEntityAttribute(SharedMonsterAttributes.MAX_HEALTH).setBaseValue(300.0F);
         this.getEntityAttribute(SharedMonsterAttributes.KNOCKBACK_RESISTANCE).setBaseValue(1.0D);
+        this.getEntityAttribute(SharedMonsterAttributes.FOLLOW_RANGE).setBaseValue(30.0D);
     }
 
     @Override
@@ -513,6 +519,40 @@ public class EntityGrimReaper extends EntityMob {
             }
         }
 
+        if (!world.isRemote &&
+                this.getAttackTarget() != null &&
+                lifeLinkCooldown == 0) {
+
+            // 高效的最近玩家查找
+            EntityPlayer closest = null;
+            double minDist = Double.MAX_VALUE;
+
+            for (EntityPlayer player : world.getEntitiesWithinAABB(
+                    EntityPlayer.class,
+                    this.getEntityBoundingBox().grow(16.0D) // 16格范围
+            )) {
+                double dist = this.getDistanceSq(player);
+                if (dist < minDist) {
+                    minDist = dist;
+                    closest = player;
+                }
+            }
+
+            if (closest != null) {
+                // 建立绑定
+                LifeLinkManager.INSTANCE.addBinding(this, closest, LIFE_LINK_DURATION);
+                lifeLinkCooldown = LIFE_LINK_COOLDOWN;
+
+                // 通知玩家
+                closest.sendMessage(new TextComponentString("你与死神建立了生命链接！"));
+            }
+        }
+
+        // 冷却倒计时
+        if (lifeLinkCooldown > 0) {
+            lifeLinkCooldown--;
+        }
+
         if (!world.isRemote) {
 
             // 计算实际位移
@@ -750,6 +790,7 @@ public class EntityGrimReaper extends EntityMob {
 
     @Override
     public void onDeath(DamageSource source) {
+        LifeLinkManager.INSTANCE.removeBindingByBoss(this.getUniqueID());
         super.onDeath(source);
     }
 
