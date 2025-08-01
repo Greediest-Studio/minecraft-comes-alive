@@ -61,6 +61,14 @@ public class EntityGrimReaper extends EntityMob {
     private int soulSwapCooldown = 0; // 单位：tick（12000 tick = 10分钟）
     private int timeDebtCooldown = 0;
     private final int TIME_DEBT_MAX_COOLDOWN = 900;
+    private int lifeLinkCooldown = 600; // 30秒冷却(600 ticks)
+    private EntityPlayer linkedPlayer;
+    private int linkDuration = 0;
+    private float linkedPlayerPrevHealth = 0.0F;
+    private DamageSource lastDamageSource;
+    private int sameDamageCount = 0;
+    private float damageReduction = 0.0f;
+    private long lastDamageTime = 0;
 
     private static final DataParameter<Integer> BLOCK_COUNTER = EntityDataManager.createKey(EntityGrimReaper.class, DataSerializers.VARINT);
     private static final DataParameter<Integer> INVINCIBLE_TICKS = EntityDataManager.createKey(EntityGrimReaper.class, DataSerializers.VARINT);
@@ -279,6 +287,37 @@ public class EntityGrimReaper extends EntityMob {
 
             float reductionRatio = MathHelper.clamp(mobCount * 0.05F, 0.0F, 0.45F);
             damage *= (0.8F - reductionRatio);
+        }
+
+        if (source != null) {
+            long currentTime = world.getTotalWorldTime();
+
+            if (lastDamageSource != null &&
+                    source.getDamageType().equals(lastDamageSource.getDamageType()) &&
+                    currentTime - lastDamageTime < 100) {
+
+                sameDamageCount++;
+
+                if (sameDamageCount >= 2) {
+                    sameDamageCount = 0;
+                    damageReduction = Math.min(damageReduction + 0.1f, 0.8f);
+
+                    // 视觉提示
+                    if (!world.isRemote) {
+                        world.spawnParticle(EnumParticleTypes.VILLAGER_HAPPY,
+                                posX, posY + 1, posZ, 0.5, 0.5, 0.5);
+                    }
+                }
+            } else {
+                // 伤害类型变化或超时，重置减伤
+                sameDamageCount = 0;
+                damageReduction = 0.0f;
+            }
+
+            lastDamageSource = source;
+            lastDamageTime = currentTime;
+
+            damage *= (1.0f - damageReduction);
         }
 
         super.attackEntityFrom(source, damage);
@@ -514,6 +553,66 @@ public class EntityGrimReaper extends EntityMob {
             currentBlockDuration--;
             if (currentBlockDuration <= 0) {
                 setAttackState(EnumReaperAttackState.IDLE);
+            }
+        }
+
+        if (!world.isRemote) {
+            // 链接效果处理
+            if (linkDuration > 0 && linkedPlayer != null && !linkedPlayer.isDead) {
+                linkDuration--;
+
+                float currentHealth = linkedPlayer.getHealth();
+
+                // 检测玩家是否回复了生命值
+                if (currentHealth > linkedPlayerPrevHealth) {
+                    float healAmount = currentHealth - linkedPlayerPrevHealth;
+
+                    // 如果玩家血量已满，造成伤害
+                    if (currentHealth >= linkedPlayer.getMaxHealth()) {
+                        linkedPlayer.attackEntityFrom(DamageSource.MAGIC, healAmount);
+                    }
+                    // 否则同步治疗BOSS
+                    else {
+                        this.heal(healAmount);
+                    }
+                }
+
+                // 更新记录的生命值
+                linkedPlayerPrevHealth = currentHealth;
+
+                // 添加视觉特效
+                if (world.getTotalWorldTime() % 5 == 0) {
+                    Vec3d pos = new Vec3d(
+                            (posX + linkedPlayer.posX) / 2,
+                            (posY + linkedPlayer.posY + 1) / 2,
+                            (posZ + linkedPlayer.posZ) / 2
+                    );
+                    world.spawnParticle(EnumParticleTypes.HEART,
+                            pos.x, pos.y, pos.z, 0, 0.1, 0);
+                }
+            } else {
+                linkedPlayer = null;
+                linkDuration = 0;
+            }
+
+            // 冷却结束，尝试链接新玩家
+            if (lifeLinkCooldown <= 0) {
+                lifeLinkCooldown = 600; // 重置冷却
+
+                // 找到8格内最近的玩家
+                EntityPlayer closest = world.getClosestPlayerToEntity(this, 8.0D);
+                if (closest != null && !closest.isDead) {
+                    linkedPlayer = closest;
+                    linkedPlayerPrevHealth = closest.getHealth(); // 记录初始血量
+                    linkDuration = 200; // 10秒持续时间(200 ticks)
+
+                    // 视觉和音效提示
+                    closest.addPotionEffect(new PotionEffect(MobEffects.GLOWING, 200, 0));
+                    world.playSound(null, posX, posY, posZ,
+                            SoundsMCA.reaper_summon, SoundCategory.HOSTILE, 1.0F, 0.8F);
+                }
+            } else {
+                lifeLinkCooldown--;
             }
         }
 
