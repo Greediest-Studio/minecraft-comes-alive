@@ -95,7 +95,7 @@ public class EntityGrimReaper extends EntityMob {
     protected final void applyEntityAttributes() {
         super.applyEntityAttributes();
         this.getEntityAttribute(SharedMonsterAttributes.FOLLOW_RANGE).setBaseValue(50.0D);
-        this.getEntityAttribute(SharedMonsterAttributes.MOVEMENT_SPEED).setBaseValue(0.30F);
+        this.getEntityAttribute(SharedMonsterAttributes.MOVEMENT_SPEED).setBaseValue(0.25F);
         this.getEntityAttribute(SharedMonsterAttributes.ATTACK_DAMAGE).setBaseValue(4.5F);
         this.getEntityAttribute(SharedMonsterAttributes.MAX_HEALTH).setBaseValue(300.0F);
         this.getEntityAttribute(SharedMonsterAttributes.KNOCKBACK_RESISTANCE).setBaseValue(1.0D);
@@ -196,7 +196,7 @@ public class EntityGrimReaper extends EntityMob {
             return false;
         }
 
-        // Ignore damage when blocking, and teleport behind the player when they attempt to block.
+        //格挡机制
         else if (!world.isRemote && this.getAttackState() == EnumReaperAttackState.BLOCK && source.getImmediateSource() instanceof EntityPlayer) {
             EntityPlayer player = (EntityPlayer) source.getImmediateSource();
 
@@ -220,7 +220,7 @@ public class EntityGrimReaper extends EntityMob {
             this.dataManager.set(BLOCK_COUNTER, newBlockCount);
 
             if (newBlockCount % 3 == 0) {
-                this.dataManager.set(INVINCIBLE_TICKS, 20); // 20 ticks = 1秒
+                this.dataManager.set(INVINCIBLE_TICKS, 30);
             }
 
             currentBlockDuration = Math.min(currentBlockDuration + 2, 100);
@@ -228,22 +228,10 @@ public class EntityGrimReaper extends EntityMob {
             float healAmount = this.getMaxHealth() * 0.004f;
             this.setHealth(Math.min(this.getHealth() + healAmount, this.getMaxHealth()));
 
-                // 治疗粒子效果
-                if (!world.isRemote) {
-                    for (int i = 0; i < 5; i++) {
-                        world.spawnParticle(EnumParticleTypes.HEART,
-                                posX + (rand.nextDouble() - 0.5),
-                                posY + 1.5 + rand.nextDouble(),
-                                posZ + (rand.nextDouble() - 0.5),
-                                0, 0.1, 0);
-                    }
-                }
-
             setStateTransitionCooldown(0);
             return false;
         }
 
-        // Randomly portal behind the player who just attacked.
         else if (!world.isRemote && source.getImmediateSource() instanceof EntityPlayer && rand.nextFloat() > 0.30F) {
             EntityPlayer player = (EntityPlayer) source.getImmediateSource();
 
@@ -259,8 +247,8 @@ public class EntityGrimReaper extends EntityMob {
             if (arrow != null && arrow.shootingEntity instanceof EntityPlayer && getAttackState() != EnumReaperAttackState.REST) {
                 EntityPlayer player = (EntityPlayer) arrow.shootingEntity;
                 if (player != null && !player.isDead) {
-                double newX = player.posX + rand.nextFloat() > 0.50F ? 2 : -2;
-                double newZ = player.posZ + rand.nextFloat() > 0.50F ? 2 : -2;
+                    double newX = player.posX + (rand.nextFloat() > 0.5F ? 2 : -2);
+                    double newZ = player.posZ + (rand.nextFloat() > 0.5F ? 2 : -2);
 
                 teleportTo(newX, player.posY, newZ);
             }}
@@ -290,12 +278,6 @@ public class EntityGrimReaper extends EntityMob {
                 if (sameDamageCount >= 2) {
                     sameDamageCount = 0;
                     damageReduction = Math.min(damageReduction + 0.1f, 0.8f);
-
-                    // 视觉提示
-                    if (!world.isRemote) {
-                        world.spawnParticle(EnumParticleTypes.VILLAGER_HAPPY,
-                                posX, posY + 1, posZ, 0.5, 0.5, 0.5);
-                    }
                 }
             } else {
                 // 伤害类型变化或超时，重置减伤
@@ -307,6 +289,11 @@ public class EntityGrimReaper extends EntityMob {
             lastDamageTime = currentTime;
 
             damage *= (1.0f - damageReduction);
+        }
+
+        float maxDamage = this.getMaxHealth() * 0.25F;
+        if (damage > maxDamage) {
+            damage = maxDamage;
         }
 
         super.attackEntityFrom(source, damage);
@@ -375,13 +362,12 @@ public class EntityGrimReaper extends EntityMob {
                         player.attackEntityFrom(DamageSource.causeMobDamage(this), physicalDamage);
                         player.attackEntityFrom(DamageSource.IN_FIRE, fireDamage); // 火焰伤害
                         player.attackEntityFrom(DamageSource.MAGIC, magicDamage);  // 魔法伤害
-                        player.setFire(40); // 设置2秒着火（40ticks）
-                        player.addPotionEffect(new PotionEffect(MobEffects.WITHER, this.world.getDifficulty().getId() * 20, 1));
+                        //攻击吸取经验
                         if (player.experienceLevel > 0 || player.experienceTotal > 0) {
                         int totalExp = player.experienceTotal;
 
                         int drainExp = Math.max(1, MathHelper.floor(totalExp * 0.05F));
-                        drainExp = Math.min(drainExp, player.experienceTotal); // 防止负数
+                        drainExp = Math.min(drainExp, player.experienceTotal);
                             player.addExperience(-drainExp);
                         float healAmount = drainExp * 1.0F;
                         this.setHealth(Math.min(this.getHealth() + healAmount, this.getMaxHealth()));
@@ -445,11 +431,6 @@ public class EntityGrimReaper extends EntityMob {
                 setAttackState(EnumReaperAttackState.IDLE);
             }
         }
-
-        float maxDamage = this.getMaxHealth() * 0.25F;
-        if (damage > maxDamage) {
-            damage = maxDamage;
-        }
     }
 
     @Override
@@ -475,18 +456,9 @@ public class EntityGrimReaper extends EntityMob {
     @Override
     public void onUpdate() {
 
+        //格挡无敌帧
         if (this.dataManager.get(INVINCIBLE_TICKS) > 0) {
             this.dataManager.set(INVINCIBLE_TICKS, this.dataManager.get(INVINCIBLE_TICKS) - 1);
-
-            if (world.isRemote && rand.nextInt(3) == 0) {
-                for (int i = 0; i < 2; i++) {
-                    world.spawnParticle(EnumParticleTypes.SPELL_INSTANT,
-                            posX + (rand.nextDouble() - 0.5) * 1.5,
-                            posY + rand.nextDouble() * 2.5,
-                            posZ + (rand.nextDouble() - 0.5) * 1.5,
-                            0, 0, 0);
-                }
-            }
         }
 
         if (!world.isRemote) {
@@ -712,7 +684,7 @@ public class EntityGrimReaper extends EntityMob {
         }
 
         if (!world.isRemote && this.getAttackState() != EnumReaperAttackState.REST) {
-            if (world.getTotalWorldTime() % 12 == 0) {
+            if (world.getTotalWorldTime() % 20 == 0) {
                 for (EntityPlayer player : world.getEntitiesWithinAABB(EntityPlayer.class, this.getEntityBoundingBox().grow(3.0D))) {
                     if (!player.isDead) {
                         float damageAmount = player.getMaxHealth() * 0.01F;
@@ -722,7 +694,7 @@ public class EntityGrimReaper extends EntityMob {
             }
         }
 
-        EntityPlayer nearestPlayer = world.getClosestPlayerToEntity(this, 8.0D);
+        EntityPlayer nearestPlayer = world.getClosestPlayerToEntity(this, 16.0D);
 
         if (nearestPlayer != null && !nearestPlayer.isDead && !world.isRemote && soulSwapCooldown == 0
                 && getHealth() / getMaxHealth() <= 0.25F) {
