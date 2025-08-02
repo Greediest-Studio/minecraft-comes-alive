@@ -781,8 +781,19 @@ public class EntityGrimReaper extends EntityMob {
     @Override
     public void onDeath(DamageSource source) {
         LifeLinkManager.INSTANCE.removeBindingByBoss(this.getUniqueID());
+
+        IAttributeInstance healthAttr = this.getEntityAttribute(SharedMonsterAttributes.MAX_HEALTH);
+        Collection<AttributeModifier> modifiers = healthAttr.getModifiers();
+
+        for (AttributeModifier modifier : modifiers) {
+            if (modifier.getName().startsWith("EffectClearHealthBoost_")) {
+                healthAttr.removeModifier(modifier);
+            }
+        }
+
         super.onDeath(source);
     }
+
 
     @Override
     public String getName() {

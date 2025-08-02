@@ -3,17 +3,25 @@ package com.smd.mca.entity;
 
 import com.smd.mca.Tags;
 import com.smd.mca.core.minecraft.ModPotion;
+import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.init.SoundEvents;
 import net.minecraft.potion.PotionEffect;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.EnumParticleTypes;
 import net.minecraft.util.SoundCategory;
 import net.minecraft.util.text.TextComponentString;
+import net.minecraft.world.Teleporter;
 import net.minecraft.world.World;
+import net.minecraft.world.WorldServer;
 import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.event.entity.EntityTravelToDimensionEvent;
+import net.minecraftforge.event.entity.living.EnderTeleportEvent;
 import net.minecraftforge.event.entity.living.LivingHurtEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
+import net.minecraftforge.fml.common.gameevent.PlayerEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 import net.minecraftforge.event.entity.living.LivingHealEvent;
 
@@ -176,10 +184,6 @@ public enum LifeLinkManager {
         }
     }
 
-
-
-
-
     @SubscribeEvent
     public void onLivingHurt(LivingHurtEvent event) {
         if (!(event.getSource().getTrueSource() instanceof EntityPlayer)) return;
@@ -192,6 +196,60 @@ public enum LifeLinkManager {
             // 15%伤害转化为治疗
             float healAmount = event.getAmount() * 0.15f;
             boss.heal(healAmount);
+        }
+    }
+
+    @SubscribeEvent
+    public void onPlayerTeleport(EnderTeleportEvent event) {
+        if (!(event.getEntityLiving() instanceof EntityPlayer)) return;
+
+        EntityPlayer player = (EntityPlayer) event.getEntityLiving();
+        World world = player.world;
+        if (world.isRemote) return;
+
+        long currentTime = world.getTotalWorldTime();
+        EntityLivingBase boss = getBossForPlayer(player, currentTime);
+
+        if (boss != null && !boss.isDead) {
+
+            event.setCanceled(true);
+
+            double offsetX = (world.rand.nextDouble() - 0.5) * 4.0;
+            double offsetZ = (world.rand.nextDouble() - 0.5) * 4.0;
+            double targetX = boss.posX + offsetX;
+            double targetY = boss.posY + 1.5;
+            double targetZ = boss.posZ + offsetZ;
+
+            player.setPositionAndUpdate(targetX, targetY, targetZ);
+            player.sendMessage(new TextComponentString("生命链接时你无法逃离死神的掌控！"));
+
+        }
+    }
+
+    @SubscribeEvent
+    public void onPlayerTravelDimension(EntityTravelToDimensionEvent event) {
+        if (!(event.getEntity() instanceof EntityPlayerMP)) return;
+
+        EntityPlayerMP player = (EntityPlayerMP) event.getEntity();
+        World world = player.world;
+        if (world.isRemote) return;
+
+        long currentTime = world.getTotalWorldTime();
+        EntityLivingBase boss = LifeLinkManager.INSTANCE.getBossForPlayer(player, currentTime);
+
+        if (boss != null && !boss.isDead) {
+
+            event.setCanceled(true);
+
+            double offsetX = (world.rand.nextDouble() - 0.5) * 4.0;
+            double offsetZ = (world.rand.nextDouble() - 0.5) * 4.0;
+            double targetX = boss.posX + offsetX;
+            double targetY = boss.posY + 1.5;
+            double targetZ = boss.posZ + offsetZ;
+
+            player.setPositionAndUpdate(targetX, targetY, targetZ);
+
+            player.sendMessage(new TextComponentString("生命链接时你无法逃离死神的维度锁定！"));
         }
     }
 }
