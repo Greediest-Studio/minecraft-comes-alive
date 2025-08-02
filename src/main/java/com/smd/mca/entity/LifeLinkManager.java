@@ -9,6 +9,7 @@ import net.minecraft.init.SoundEvents;
 import net.minecraft.potion.PotionEffect;
 import net.minecraft.util.EnumParticleTypes;
 import net.minecraft.util.SoundCategory;
+import net.minecraft.util.text.TextComponentString;
 import net.minecraft.world.World;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.entity.living.LivingHurtEvent;
@@ -16,6 +17,7 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 import net.minecraftforge.event.entity.living.LivingHealEvent;
 
+import java.awt.*;
 import java.lang.ref.WeakReference;
 import java.util.*;
 
@@ -124,6 +126,10 @@ public enum LifeLinkManager {
                         (binding.isExpired(currentTime) ||
                                 binding.getBoss() == null ||
                                 binding.getPlayer() == null)) {
+
+                    if (binding.getPlayer() != null) {
+                        binding.getPlayer().sendMessage(new TextComponentString("生命链接已断开"));
+                    }
                     iterator.remove();
                     if (binding.getBoss() != null) {
                         bossToPlayerMap.remove(binding.getBoss().getUniqueID());

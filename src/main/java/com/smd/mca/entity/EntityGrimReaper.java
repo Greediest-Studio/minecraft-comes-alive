@@ -62,6 +62,7 @@ public class EntityGrimReaper extends EntityMob {
     private int sameDamageCount = 0;
     private float damageReduction = 0.0f;
     private long lastDamageTime = 0;
+    private int noClipTicks = 0;
 
     private static final DataParameter<Integer> BLOCK_COUNTER = EntityDataManager.createKey(EntityGrimReaper.class, DataSerializers.VARINT);
     private static final DataParameter<Integer> INVINCIBLE_TICKS = EntityDataManager.createKey(EntityGrimReaper.class, DataSerializers.VARINT);
@@ -95,7 +96,7 @@ public class EntityGrimReaper extends EntityMob {
     protected final void applyEntityAttributes() {
         super.applyEntityAttributes();
         this.getEntityAttribute(SharedMonsterAttributes.FOLLOW_RANGE).setBaseValue(50.0D);
-        this.getEntityAttribute(SharedMonsterAttributes.MOVEMENT_SPEED).setBaseValue(0.25F);
+        this.getEntityAttribute(SharedMonsterAttributes.MOVEMENT_SPEED).setBaseValue(0.20F);
         this.getEntityAttribute(SharedMonsterAttributes.ATTACK_DAMAGE).setBaseValue(4.5F);
         this.getEntityAttribute(SharedMonsterAttributes.MAX_HEALTH).setBaseValue(300.0F);
         this.getEntityAttribute(SharedMonsterAttributes.KNOCKBACK_RESISTANCE).setBaseValue(1.0D);
@@ -353,6 +354,7 @@ public class EntityGrimReaper extends EntityMob {
                     // 血量低于10%直接秒杀
                     if (player.getHealth() <= player.getMaxHealth() * 0.1F) {
                         player.setHealth(0.0F);
+                        player.sendMessage(new TextComponentString("死神收割了你的灵魂"));
                     } else {
                         // 分段伤害计算
                         float physicalDamage = rawDamage * 0.6F;  // 60%物理伤害
@@ -479,6 +481,17 @@ public class EntityGrimReaper extends EntityMob {
 
         super.onUpdate();
         extinguish();
+
+        if (this.getAttackTarget() != null && !this.getAttackTarget().isDead) {
+            if (noClipTicks <= 0) noClipTicks = 20;
+        }
+
+        if (noClipTicks > 0) {
+            this.noClip = true;
+            noClipTicks--;
+        } else {
+            this.noClip = false;
+        }
 
         if (getAttackState() == EnumReaperAttackState.BLOCK) {
             currentBlockDuration--;
@@ -713,8 +726,9 @@ public class EntityGrimReaper extends EntityMob {
 
                 this.setHealth(playerHealthPercent * this.getMaxHealth());
                 nearestPlayer.setHealth(reaperHealthPercent * nearestPlayer.getMaxHealth());
+                nearestPlayer.sendMessage(new TextComponentString("死神发动了灵魂契约"));
 
-                soulSwapCooldown = 12000;
+                soulSwapCooldown = 6000;
             }
         }
 
