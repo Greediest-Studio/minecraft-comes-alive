@@ -295,12 +295,10 @@ public class EntityGrimReaper extends EntityMob {
             damage *= (1.0f - damageReduction);
         }
 
-        float maxDamage = this.getMaxHealth() * 0.25F;
-        if (damage > maxDamage) {
-            damage = maxDamage;
-        }
+        float maxAllowedDamage = this.getMaxHealth() * 0.25F;
+        damage = Math.min(damage, maxAllowedDamage);
 
-        super.attackEntityFrom(source, damage);
+        boolean result = super.attackEntityFrom(source, damage);
 
         if (!world.isRemote && this.getHealth() <= (this.getEntityAttribute(SharedMonsterAttributes.MAX_HEALTH).getBaseValue() / 2) && healingCooldown == 0) {
             setAttackState(EnumReaperAttackState.REST);
@@ -309,10 +307,12 @@ public class EntityGrimReaper extends EntityMob {
             setStateTransitionCooldown(400);
         }
 
-        float anyDamageHeal = this.getMaxHealth() * 0.001f;
-        this.setHealth(Math.min(this.getHealth() + anyDamageHeal, this.getMaxHealth()));
+        if (damage < this.getHealth()) {
+            float anyDamageHeal = this.getMaxHealth() * 0.001f;
+            this.setHealth(Math.min(this.getHealth() + anyDamageHeal, this.getMaxHealth()));
+        }
 
-        return true;
+        return result;
     }
 
     protected void attackEntity(Entity entity, float damage) {
