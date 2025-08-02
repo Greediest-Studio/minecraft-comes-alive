@@ -12,6 +12,8 @@ import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.MoverType;
 import net.minecraft.entity.SharedMonsterAttributes;
 import net.minecraft.entity.ai.*;
+import net.minecraft.entity.ai.attributes.AttributeModifier;
+import net.minecraft.entity.ai.attributes.IAttributeInstance;
 import net.minecraft.entity.effect.EntityLightningBolt;
 import net.minecraft.entity.monster.EntityMob;
 import net.minecraft.entity.monster.EntitySkeleton;
@@ -44,6 +46,7 @@ import net.minecraft.world.World;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.UUID;
 
 public class EntityGrimReaper extends EntityMob {
     private static final DataParameter<Integer> ATTACK_STATE = EntityDataManager.<Integer>createKey(EntityGrimReaper.class, DataSerializers.VARINT);
@@ -710,13 +713,23 @@ public class EntityGrimReaper extends EntityMob {
         if (nearestPlayer != null && !nearestPlayer.isDead && !world.isRemote && soulSwapCooldown == 0
                 && getHealth() / getMaxHealth() <= 0.25F) {
 
-            if (nearestPlayer != null && !nearestPlayer.isDead) {
                 int clearCount = this.dataManager.get(EFFECT_CLEAR_COUNT);
 
                 if (clearCount > 0) {
-                    float healthBoost = this.getMaxHealth() * (clearCount * 0.015f);
-                    this.getEntityAttribute(SharedMonsterAttributes.MAX_HEALTH)
-                            .setBaseValue(this.getMaxHealth() + healthBoost);
+                    double percentBoost = clearCount * 0.015;
+
+                    IAttributeInstance healthAttr = this.getEntityAttribute(SharedMonsterAttributes.MAX_HEALTH);
+
+                    UUID newUUID = UUID.randomUUID();
+
+                    AttributeModifier healthBoostModifier = new AttributeModifier(
+                            newUUID,
+                            "EffectClearHealthBoost_" + clearCount + "_" + System.currentTimeMillis(),
+                            percentBoost,
+                            2
+                    );
+
+                    healthAttr.applyModifier(healthBoostModifier);
 
                     this.dataManager.set(EFFECT_CLEAR_COUNT, 0);
                 }
@@ -729,7 +742,6 @@ public class EntityGrimReaper extends EntityMob {
                 nearestPlayer.sendMessage(new TextComponentString("死神发动了灵魂契约"));
 
                 soulSwapCooldown = 6000;
-            }
         }
 
         if (soulSwapCooldown > 0) {
