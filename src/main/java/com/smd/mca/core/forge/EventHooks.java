@@ -34,6 +34,7 @@ import net.minecraftforge.event.entity.PlaySoundAtEntityEvent;
 import net.minecraftforge.event.entity.item.ItemTossEvent;
 import net.minecraftforge.event.entity.living.LivingDamageEvent;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
+import net.minecraftforge.event.entity.living.LivingHealEvent;
 import net.minecraftforge.event.entity.living.LivingSetAttackTargetEvent;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 import net.minecraftforge.event.world.BlockEvent;
@@ -256,6 +257,15 @@ public class EventHooks {
                 event.setAmount(maxAllowedDamage);
             }
         }
+    }
+
+    @SubscribeEvent
+    public void onLivingHeal(LivingHealEvent event) {
+        if (!(event.getEntityLiving() instanceof EntityGrimReaper)) return;
+
+        EntityGrimReaper boss = (EntityGrimReaper) event.getEntityLiving();
+        float missingPercent = (boss.getMaxHealth() - boss.getHealth()) / boss.getMaxHealth();
+        event.setAmount(event.getAmount() * (1 + missingPercent));
     }
 
 }
