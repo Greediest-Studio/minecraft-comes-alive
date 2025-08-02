@@ -164,23 +164,23 @@ public enum LifeLinkManager {
 
         if (boss != null && !boss.isDead && boss.getHealth() < boss.getMaxHealth()) {
             boss.heal(healAmount);
-        }
 
-        if (futureHealth > maxHealth) {
-            PotionEffect current = player.getActivePotionEffect(ModPotion.DEATH_DENIAL);
-            int amplifier = current != null ? Math.min(current.getAmplifier() + 1, 19) : 0;
+            if (futureHealth > maxHealth) {
+                PotionEffect current = player.getActivePotionEffect(ModPotion.DEATH_DENIAL);
+                int amplifier = current != null ? Math.min(current.getAmplifier() + 1, 19) : 0;
 
-            PotionEffect effect = new PotionEffect(ModPotion.DEATH_DENIAL, 600, amplifier);
-            effect.setCurativeItems(new ArrayList<>());
-            player.addPotionEffect(effect);
+                PotionEffect effect = new PotionEffect(ModPotion.DEATH_DENIAL, 600, amplifier);
+                effect.setCurativeItems(new ArrayList<>());
+                player.addPotionEffect(effect);
 
-            world.playSound(null, player.posX, player.posY, player.posZ, SoundEvents.ENTITY_WITHER_HURT, SoundCategory.HOSTILE, 1.0F, 0.8F);
-        }
-        PotionEffect denial = player.getActivePotionEffect(ModPotion.DEATH_DENIAL);
-        if (denial != null) {
-            float reduction = (denial.getAmplifier() + 1) * 0.05f;
-            healAmount *= (1.0f - reduction);
-            event.setAmount(healAmount);
+                world.playSound(null, player.posX, player.posY, player.posZ, SoundEvents.ENTITY_WITHER_HURT, SoundCategory.HOSTILE, 1.0F, 0.8F);
+            }
+            PotionEffect denial = player.getActivePotionEffect(ModPotion.DEATH_DENIAL);
+            if (denial != null) {
+                float reduction = (denial.getAmplifier() + 1) * 0.05f;
+                healAmount *= (1.0f - reduction);
+                event.setAmount(healAmount);
+            }
         }
     }
 
