@@ -194,7 +194,7 @@ public enum LifeLinkManager {
 
         if (boss != null && !boss.isDead) {
             // 15%伤害转化为治疗
-            float healAmount = event.getAmount() * 0.15f;
+            float healAmount = event.getAmount() * 0.25f;
             boss.heal(healAmount);
         }
     }

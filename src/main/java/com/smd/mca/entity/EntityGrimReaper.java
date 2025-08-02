@@ -295,9 +295,6 @@ public class EntityGrimReaper extends EntityMob {
             damage *= (1.0f - damageReduction);
         }
 
-        float maxAllowedDamage = this.getMaxHealth() * 0.25F;
-        damage = Math.min(damage, maxAllowedDamage);
-
         boolean result = super.attackEntityFrom(source, damage);
 
         if (!world.isRemote && this.getHealth() <= (this.getEntityAttribute(SharedMonsterAttributes.MAX_HEALTH).getBaseValue() / 2) && healingCooldown == 0) {
@@ -308,7 +305,7 @@ public class EntityGrimReaper extends EntityMob {
         }
 
         if (damage < this.getHealth()) {
-            float anyDamageHeal = this.getMaxHealth() * 0.001f;
+            float anyDamageHeal = this.getMaxHealth() * 0.002f;
             this.setHealth(Math.min(this.getHealth() + anyDamageHeal, this.getMaxHealth()));
         }
 
@@ -699,9 +696,9 @@ public class EntityGrimReaper extends EntityMob {
 
         if (!world.isRemote && this.getAttackState() != EnumReaperAttackState.REST) {
             if (world.getTotalWorldTime() % 20 == 0) {
-                for (EntityPlayer player : world.getEntitiesWithinAABB(EntityPlayer.class, this.getEntityBoundingBox().grow(3.0D))) {
+                for (EntityPlayer player : world.getEntitiesWithinAABB(EntityPlayer.class, this.getEntityBoundingBox().grow(4.0D))) {
                     if (!player.isDead) {
-                        float damageAmount = player.getMaxHealth() * 0.01F;
+                        float damageAmount = player.getMaxHealth() * 0.02F;
                         float newHealth = player.getHealth() - damageAmount;
                         newHealth = Math.max(newHealth, 0.0F);
 
@@ -717,7 +714,7 @@ public class EntityGrimReaper extends EntityMob {
         EntityPlayer nearestPlayer = world.getClosestPlayerToEntity(this, 16.0D);
 
         if (nearestPlayer != null && !nearestPlayer.isDead && !world.isRemote && soulSwapCooldown == 0
-                && getHealth() / getMaxHealth() <= 0.25F) {
+                && getHealth() / getMaxHealth() <= 0.2F) {
 
                 int clearCount = this.dataManager.get(EFFECT_CLEAR_COUNT);
 
@@ -747,7 +744,7 @@ public class EntityGrimReaper extends EntityMob {
                 nearestPlayer.setHealth(reaperHealthPercent * nearestPlayer.getMaxHealth());
                 nearestPlayer.sendMessage(new TextComponentString("死神发动了灵魂契约"));
 
-                soulSwapCooldown = 6000;
+                soulSwapCooldown = 4000;
         }
 
         if (soulSwapCooldown > 0) {

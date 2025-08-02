@@ -243,4 +243,19 @@ public class EventHooks {
             }
         }
     }
+
+    @SubscribeEvent
+    public void onLivingDamage(LivingDamageEvent event) {
+        if (event.getEntityLiving() instanceof EntityGrimReaper) {
+            EntityGrimReaper boss = (EntityGrimReaper) event.getEntityLiving();
+
+            float maxAllowedDamage = boss.getMaxHealth() * 0.25F;
+            float finalDamage = event.getAmount();
+
+            if (finalDamage > maxAllowedDamage) {
+                event.setAmount(maxAllowedDamage);
+            }
+        }
+    }
+
 }
