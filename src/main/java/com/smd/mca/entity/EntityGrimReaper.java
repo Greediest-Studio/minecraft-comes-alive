@@ -577,6 +577,14 @@ public class EntityGrimReaper extends EntityMob {
             setDead();
         }
 
+        if (!world.isRemote && this.getHealth() > 0.0F) {
+            if (world.getTotalWorldTime() % 20 == 0) {
+                float healAmount = this.getMaxHealth() * 0.001f;
+                this.heal(healAmount);
+            }
+        }
+
+
         bossInfo.setPercent(this.getHealth() / this.getMaxHealth());
 
         if (this.getAttackTarget() != null) {
