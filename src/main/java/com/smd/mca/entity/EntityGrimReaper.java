@@ -262,7 +262,7 @@ public class EntityGrimReaper extends EntityMob {
                     .filter(mob -> mob != this && !mob.isDead)
                     .toArray().length;
 
-            float reductionRatio = MathHelper.clamp(mobCount * 0.05F, 0.0F, 0.45F);
+            float reductionRatio = MathHelper.clamp(mobCount * 0.06F, 0.0F, 0.6F);
             damage *= (0.8F - reductionRatio);
         }
 
@@ -612,8 +612,8 @@ public class EntityGrimReaper extends EntityMob {
             if (!world.isRemote && getStateTransitionCooldown() == 1) {
                 setAttackState(EnumReaperAttackState.IDLE);
                 timesHealed++;
-            } else if (!world.isRemote && getStateTransitionCooldown() % 100 == 0) {
-                float healAmount = this.getMaxHealth() * 0.04f;
+            } else if (!world.isRemote && getStateTransitionCooldown() % 50 == 0) {
+                float healAmount = this.getMaxHealth() * 0.03f;
                 this.setHealth(Math.min(this.getHealth() + healAmount, this.getMaxHealth()));
 
                 for (EntityPlayer player : world.getEntitiesWithinAABB(EntityPlayer.class, this.getEntityBoundingBox().grow(6.0D))) {
@@ -623,8 +623,6 @@ public class EntityGrimReaper extends EntityMob {
                     player.motionX += direction.x * pushPower;
                     player.motionZ += direction.z * pushPower;
 
-                    world.playSound(null, player.posX, player.posY, player.posZ, SoundsMCA.reaper_summon, SoundCategory.HOSTILE, 1.0F, 0.8F);
-                    world.spawnParticle(EnumParticleTypes.SMOKE_LARGE, player.posX, player.posY + 1.0D, player.posZ, 0.0D, 0.1D, 0.0D);
                 }
 
                 int dX = rand.nextInt(8) + 4 * (rand.nextFloat() > 0.50F ? 1 : -1);
