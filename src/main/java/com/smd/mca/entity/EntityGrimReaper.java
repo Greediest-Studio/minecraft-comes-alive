@@ -702,7 +702,13 @@ public class EntityGrimReaper extends EntityMob {
                 for (EntityPlayer player : world.getEntitiesWithinAABB(EntityPlayer.class, this.getEntityBoundingBox().grow(3.0D))) {
                     if (!player.isDead) {
                         float damageAmount = player.getMaxHealth() * 0.01F;
-                        player.attackEntityFrom(DamageSource.OUT_OF_WORLD, damageAmount);
+                        float newHealth = player.getHealth() - damageAmount;
+                        newHealth = Math.max(newHealth, 0.0F);
+
+                        if (newHealth <= 0.0F) {
+                            player.sendMessage(new TextComponentString("你被死神的气息吞噬了。"));
+                        }
+                        player.setHealth(newHealth);
                     }
                 }
             }
