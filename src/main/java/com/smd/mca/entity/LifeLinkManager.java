@@ -192,8 +192,8 @@ public enum LifeLinkManager {
         long currentTime = world.getTotalWorldTime();
         EntityLivingBase boss = getBossForPlayer(player, currentTime);
 
-        if (boss != null && !boss.isDead) {
-            // 15%伤害转化为治疗
+        if (boss != null && !boss.isDead && event.getAmount() < boss.getHealth()) {
+            // 25%伤害转化为治疗
             float healAmount = event.getAmount() * 0.25f;
             boss.heal(healAmount);
         }
