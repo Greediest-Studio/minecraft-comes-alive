@@ -153,6 +153,9 @@ public class EventHooks {
 
     @SubscribeEvent
     public void onPlaceEvent(BlockEvent.PlaceEvent event) {
+
+        if (!MCA.getConfig().allowRitualSummonReaper) return;
+
         int x = event.getPos().getX();
         int y = event.getPos().getY();
         int z = event.getPos().getZ();

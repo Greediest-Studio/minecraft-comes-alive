@@ -33,6 +33,8 @@ public final class Config implements Serializable {
     public boolean allowPlayerMarriage;
     public boolean enableAdminCommands;
     public boolean allowRoseGoldGeneration;
+    public boolean allowRitualSummonReaper;
+
 
     public Config(FMLPreInitializationEvent event) {
         config = new Configuration(event.getSuggestedConfigurationFile());
@@ -45,6 +47,7 @@ public final class Config implements Serializable {
         enableInfection = config.get("General", "Enable Zombie Infection?", true, "Should zombies be able to infect villagers?").getBoolean();
         infectionChance = config.get("General", "Chance of Infection", 5, "Chance that a villager will be infected on hit from a zombie. Default is 5 for 5%.").getInt();
         allowGrimReaper = config.get("General", "Allow Grim Reaper?", true, "Should the Grim Reaper boss be enabled?").getBoolean();
+        allowRitualSummonReaper = config.get("General", "Allow Ritual Summon of Grim Reaper?", true, "If enabled, players can summon the Grim Reaper via ritual structure.").getBoolean();
         guardSpawnRate = config.get("General", "Guard Spawn Rate", 6, "How many villagers that should be in a village before a guard spawns.").getInt();
         chanceToHaveTwins = config.get("General", "Chance to Have Twins", 2, "Chance that you will have twins. Default is 2 for 2%.").getInt();
         marriageHeartsRequirement = config.get("General", "Marriage Hearts Requirement", 100, "Number of hearts required to get married.").getInt();
