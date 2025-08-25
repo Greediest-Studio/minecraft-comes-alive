@@ -267,8 +267,13 @@ public class EventHooks {
         if (!(event.getEntityLiving() instanceof EntityGrimReaper)) return;
 
         EntityGrimReaper boss = (EntityGrimReaper) event.getEntityLiving();
-        float missingPercent = (boss.getMaxHealth() - boss.getHealth()) / boss.getMaxHealth();
-        event.setAmount(event.getAmount() * (1 + missingPercent));
-    }
+        float healthPercent = boss.getHealth() / boss.getMaxHealth();
 
+        if (healthPercent < 0.25f) {
+            event.setAmount(event.getAmount() * 2.5f);
+        } else {
+            float missingPercent = 1.0f - healthPercent;
+            event.setAmount(event.getAmount() * (1.0f + missingPercent));
+        }
+    }
 }
